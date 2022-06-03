@@ -1,0 +1,54 @@
+{
+	"data": [
+		{
+			"uuid": "0cebb8be-46d7-c12a-d306-e9907bfc5a25",
+			"devName": "Deluxe",
+			"rank": 1,
+			"juiceValue": 20,
+			"juiceCost": 60,
+			"highlightColor": "00958733",
+			"displayIcon": "https://media.valorant-api.com/contenttiers/0cebb8be-46d7-c12a-d306-e9907bfc5a25/displayicon.png",
+			"assetPath": "ShooterGame/Content/ContentTiers/Deluxe_PrimaryAsset"
+		},
+		{
+			"uuid": "e046854e-406c-37f4-6607-19a9ba8426fc",
+			"devName": "Exclusive",
+			"rank": 3,
+			"juiceValue": 40,
+			"juiceCost": 140,
+			"highlightColor": "f1b82d33",
+			"displayIcon": "https://media.valorant-api.com/contenttiers/e046854e-406c-37f4-6607-19a9ba8426fc/displayicon.png",
+			"assetPath": "ShooterGame/Content/ContentTiers/Exclusive_PrimaryAsset"
+		},
+		{
+			"uuid": "60bca009-4182-7998-dee7-b8a2558dc369",
+			"devName": "Premium",
+			"rank": 2,
+			"juiceValue": 30,
+			"juiceCost": 100,
+			"highlightColor": "d1548d33",
+			"displayIcon": "https://media.valorant-api.com/contenttiers/60bca009-4182-7998-dee7-b8a2558dc369/displayicon.png",
+			"assetPath": "ShooterGame/Content/ContentTiers/Premium_PrimaryAsset"
+		},
+		{
+			"uuid": "12683d76-48d7-84a3-4e09-6985794f0445",
+			"devName": "Select",
+			"rank": 0,
+			"juiceValue": 10,
+			"juiceCost": 30,
+			"highlightColor": "5a9fe233",
+			"displayIcon": "https://media.valorant-api.com/contenttiers/12683d76-48d7-84a3-4e09-6985794f0445/displayicon.png",
+			"assetPath": "ShooterGame/Content/ContentTiers/Select_PrimaryAsset"
+		},
+		{
+			"uuid": "411e4a55-4e59-7757-41f0-86a53f101bb5",
+			"devName": "Ultra",
+			"rank": 4,
+			"juiceValue": 50,
+			"juiceCost": 160,
+			"highlightColor": "efeb6533",
+			"displayIcon": "https://media.valorant-api.com/contenttiers/411e4a55-4e59-7757-41f0-86a53f101bb5/displayicon.png",
+			"assetPath": "ShooterGame/Content/ContentTiers/Ultra_PrimaryAsset"
+		}
+	]
+}

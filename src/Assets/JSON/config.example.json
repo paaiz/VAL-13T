@@ -1,0 +1,15 @@
+{
+	"client": {
+		"prefix": "YOUR BOT PREFIX",
+		"owners": ["OWNER ID"]
+	},
+	"defaultPerms": ["SEND_MESSAGES", "VIEW_CHANNEL"],
+	"color": {
+		"invis": "#2F3136"
+	},
+	"links": {
+		"botInvite": "YOUR DISCORD BOT INVITE LINK",
+		"supportInvite": "YOUR SUPPORT SERVER",
+		"saweria": "SAWERIA (FOR INDONESIA)"
+	}
+}
