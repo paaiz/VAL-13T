@@ -43,7 +43,7 @@ module.exports = class extends Event {
 					userId: interaction.user.id,
 				});
 
-				if (userData.isBlacklist) {
+				if (userData?.isBlacklist) {
 					return interaction.reply({
 						content: `Sorry, you are currently being blacklisted from using **${this.client.user.username}**!\nIf you think that this is a mistake, please join our [Support Server](${links.supportInvite})`,
 						ephemeral: true,
