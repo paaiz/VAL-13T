@@ -1,11 +1,14 @@
 {
 	"name": "val-13t",
 	"version": "1.0.0",
-	"description": "A Valorant Discord Bot that checks your Valorant daily store",
+	"description": "A Valorant Discord Bot that can checks your Valorant daily store",
 	"main": "src/index.js",
 	"scripts": {
 		"start": "node src/index.js",
 		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"engines": {
+		"node": "16.x"
 	},
 	"author": "PaizTralala",
 	"license": "MIT",
