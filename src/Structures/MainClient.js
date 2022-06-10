@@ -42,6 +42,10 @@ module.exports = class MainClient extends Client {
 		}
 		this.token = process.env.BOT_TOKEN;
 
+		if (!process.env.MONGODB_URI) {
+			throw new Error(chalk.red('MongoDB URI are required!'));
+		}
+
 		if (!options.client.prefix) {
 			throw new Error(chalk.red('Discord Bot prefix are required!'));
 		}

@@ -6,10 +6,6 @@ module.exports = class DatabaseConnection {
 	}
 
 	init() {
-		if (!process.env.MONGODB_URI) {
-			throw new Error('Please specify the MongoDB URI!');
-		}
-
 		connect(process.env.MONGODB_URI, {
 			useCreateIndex: true,
 			useNewUrlParser: true,
