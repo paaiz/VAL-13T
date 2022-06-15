@@ -51,6 +51,7 @@ module.exports = class extends Command {
 			});
 		} catch (err) {
 			this.client.logger.err(`[VALORANT-STORE] - ${err.message}`);
+			console.log(err);
 			interaction.followUp({
 				embeds: [
 					embed
