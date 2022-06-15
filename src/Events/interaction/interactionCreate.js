@@ -90,7 +90,6 @@ module.exports = class extends Event {
 		}
 
 		if (interaction.isButton()) {
-			console.log(interaction);
 			try {
 				if (interaction.user.id !== interaction.message.mentions.repliedUser.id) {
 					return interaction.reply({ content: 'Hey, this button is not for you!', ephemeral: true });
