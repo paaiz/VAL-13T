@@ -156,21 +156,21 @@ const getIngameUsername = (accessToken) => {
 	});
 };
 
-const setupReauth = () => {
-	setInterval(async () => {
-		try {
-			const response = await createSession(ssidCookie);
+// const setupReauth = () => {
+// 	setInterval(async () => {
+// 		try {
+// 			const response = await createSession(ssidCookie);
 
-			ssidCookie = response.headers['set-cookie'].find((elem) => /^ssid/.test(elem));
+// 			ssidCookie = response.headers['set-cookie'].find((elem) => /^ssid/.test(elem));
 
-			tokens = { ...tokens, ...parseUrl(response.data.response.parameters.uri) };
+// 			tokens = { ...tokens, ...parseUrl(response.data.response.parameters.uri) };
 
-			makeHeaders();
-		} catch (err) {
-			console.trace(err);
-		}
-	}, (tokens.expiresIn - 300) * 1000);
-};
+// 			makeHeaders();
+// 		} catch (err) {
+// 			console.trace(err);
+// 		}
+// 	}, (tokens.expiresIn - 300) * 1000);
+// };
 
 const getValorant2faUser = async (id, code, cookie = asidCookie) => {
 	const user = getUser(id) || {};
@@ -206,7 +206,7 @@ const getValorant2faUser = async (id, code, cookie = asidCookie) => {
 	const getGameUsername = await getIngameUsername(tokens.accessToken);
 
 	makeHeaders();
-	setupReauth();
+	// setupReauth();
 
 	users[id] = user;
 
@@ -278,7 +278,7 @@ const getValorantUser = async (id, username, password) => {
 		const getGameUsername = await getIngameUsername(tokens.accessToken);
 
 		makeHeaders();
-		setupReauth();
+		// setupReauth();
 
 		user.headers = { ...headers };
 		user.puuid = puuid;
