@@ -26,6 +26,10 @@ const getBalances = async (id) => {
 			},
 		})
 		.catch((err) => {
+			if (err.toJSON().status === 503) {
+				throw new ValorantShopError('Valorant service are currently unavailable. Try again later!');
+			}
+
 			if (err.response.data.errorCode === 'BAD_CLAIMS') {
 				throw new ValorantShopError('Login sessions are expired. Try `/login` again.');
 			}
@@ -54,6 +58,10 @@ const getDailyStore = async (id) => {
 			},
 		})
 		.catch((err) => {
+			if (err.toJSON().status === 503) {
+				throw new ValorantShopError('Valorant service are currently unavailable. Try again later!');
+			}
+
 			if (err.response.data.errorCode === 'BAD_CLAIMS') {
 				throw new ValorantShopError('Login sessions are expired. Try `/login` again.');
 			}
@@ -92,6 +100,10 @@ const getNightmarket = async (id) => {
 			},
 		})
 		.catch((err) => {
+			if (err.toJSON().status === 503) {
+				throw new ValorantShopError('Valorant service are currently unavailable. Try again later!');
+			}
+
 			if (err.response.data.errorCode === 'BAD_CLAIMS') {
 				throw new ValorantShopError('Login sessions are expired. Try `/login` again.');
 			}
