@@ -3,7 +3,7 @@ const moment = require('moment');
 
 module.exports = class Logger {
 	get getTime() {
-		return `[${moment().format('HH:mm:ss')}]`;
+		return `[${new Date().toLocaleString({ timeZone: 'Asia/Jakarta' })}]`;
 	}
 
 	ready(content) {
