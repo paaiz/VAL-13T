@@ -48,9 +48,6 @@ module.exports = class extends Event {
 			this.client.logger.ready(`Loaded ${this.client.commands.size} Slash Commands!`);
 		});
 
-		// * Delete accounts every 1 hour
-		// cron.schedule('0 * * * *', () => cleanupAccounts());
-
 		// * Deploying slash commands in global
 		const getSlashData = this.client.commands.map((x) => x);
 		const devModeFalse = getSlashData.filter((x) => x.devMode === false);
