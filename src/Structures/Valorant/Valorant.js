@@ -93,6 +93,7 @@ const login = (cookie, username, password) => {
 			type: 'auth',
 			username,
 			password,
+			remember: true,
 		},
 		httpsAgent: agent,
 	});
