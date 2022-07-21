@@ -91,10 +91,6 @@ module.exports = class extends Event {
 
 		if (interaction.isButton()) {
 			try {
-				if (interaction.user.id !== interaction.message.mentions.repliedUser.id) {
-					return interaction.reply({ content: 'Hey, this button is not for you!', ephemeral: true });
-				}
-
 				switch (interaction.customId) {
 					case 'guild_list_delete':
 						await interaction.message.delete();
