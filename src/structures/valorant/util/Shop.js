@@ -3,7 +3,13 @@ const fs = require("fs");
 const path = require("path");
 
 const skinTier = require("../../../assets/json/tier.json");
-const { getUser, saveUser, reauthorizeUser } = require("../Valorant");
+const {
+  getUser,
+  saveUser,
+  reauthorizeUser,
+  checkAccountStatus,
+  getRiotVersionData,
+} = require("../Valorant");
 const { loadWeaponSkins, getCachedSkins } = require("./Cache");
 
 const VP_UUID = "85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741";
@@ -32,11 +38,14 @@ class ValorantShopError extends Error {
  * Ensures the user has a valid, up-to-date X-Riot-ClientVersion header.
  */
 const ensureClientHeaders = async (id, user) => {
-  if (!user.headers["X-Riot-ClientVersion"]) {
-    const versionRes = await axios.get("https://valorant-api.com/v1/version");
-    user.headers["X-Riot-ClientVersion"] = versionRes.data.data.riotClientVersion;
+  const versionData = await getRiotVersionData();
+  if (versionData?.riotClientVersion && user.headers["X-Riot-ClientVersion"] !== versionData.riotClientVersion) {
+    user.headers["X-Riot-ClientVersion"] = versionData.riotClientVersion;
     saveUser(id, user);
+  } else if (!user.headers["X-Riot-ClientVersion"]) {
+    user.headers["X-Riot-ClientVersion"] = "release-10.00-shipping-0-0000000";
   }
+
   return {
     "X-Riot-ClientPlatform": user.headers["X-Riot-ClientPlatform"],
     "X-Riot-ClientVersion": user.headers["X-Riot-ClientVersion"],
@@ -47,7 +56,8 @@ const ensureClientHeaders = async (id, user) => {
 };
 
 /**
- * Helper to execute an authenticated Riot PD request with automatic re-auth retry if session expired.
+ * Helper to execute an authenticated Riot PD request with proactive 5-min buffer refresh
+ * and automatic retry on 400/401/BAD_CLAIMS.
  */
 const requestWithReauth = async (id, requestFn) => {
   let user = getUser(id);
@@ -57,19 +67,28 @@ const requestWithReauth = async (id, requestFn) => {
     );
   }
 
+  // Proactive refresh if token is expired or within 5-minute buffer (Ministral pattern)
+  const status = checkAccountStatus(user);
+  if (status.needsProactiveRefresh && status.canAutoRefresh) {
+    const refreshed = await reauthorizeUser(id);
+    if (refreshed) {
+      user = refreshed;
+    }
+  }
+
   try {
     const headers = await ensureClientHeaders(id, user);
     return await requestFn(user, headers);
   } catch (err) {
-    const status = err.response?.status;
+    const httpStatus = err.response?.status;
     const errorCode = err.response?.data?.errorCode;
 
-    if (status === 503) {
+    if (httpStatus === 503) {
       throw new ValorantShopError("Valorant services are currently unavailable. Please try again later!");
     }
 
-    if (errorCode === "BAD_CLAIMS" || status === 400 || status === 401) {
-      const refreshedUser = await reauthorizeUser(id);
+    if (errorCode === "BAD_CLAIMS" || httpStatus === 400 || httpStatus === 401) {
+      const refreshedUser = await reauthorizeUser(id, { force: true });
       if (refreshedUser) {
         const newHeaders = await ensureClientHeaders(id, refreshedUser);
         return await requestFn(refreshedUser, newHeaders);
@@ -80,7 +99,7 @@ const requestWithReauth = async (id, requestFn) => {
     }
 
     throw new ValorantShopError(
-      `An error occurred while communicating with Valorant servers (${errorCode || status || err.message}).`,
+      `An error occurred while communicating with Valorant servers (${errorCode || httpStatus || err.message}).`,
       err.response?.data
     );
   }

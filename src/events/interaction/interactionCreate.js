@@ -122,10 +122,10 @@ module.exports = class extends Event {
 
             const urlOrCookieInput = new TextInputBuilder()
               .setCustomId("riot_auth_input")
-              .setLabel("Redirect URL or ssid Cookie")
+              .setLabel("Paste the Redirect URL from your browser")
               .setStyle(TextInputStyle.Paragraph)
               .setPlaceholder(
-                "https://playvalorant.com/opt_in#access_token=eyJ... or ssid=eyJ..."
+                "http://localhost/redirect?code=..."
               )
               .setRequired(true);
 

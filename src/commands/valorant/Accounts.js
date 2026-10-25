@@ -39,7 +39,9 @@ module.exports = class extends Command {
               name: "Accounts Status: EMPTY",
               iconURL: interaction.user.displayAvatarURL(),
             })
-            .setDescription("You don't have any Valorant accounts linked yet! Run `/login` to add an account."),
+            .setDescription(
+              "You don't have any Valorant accounts linked yet! Run `/login` to add an account.",
+            ),
         ],
         flags: MessageFlags.Ephemeral,
       });
@@ -50,23 +52,18 @@ module.exports = class extends Command {
         const status = checkAccountStatus(acc);
         let statusText;
         if (status.valid) {
-          statusText = `🟢 **Ready** (Expires <t:${status.expiresAt}:R>)`;
-        } else if (status.hasCookie) {
-          statusText = `🟡 **Auto-Refresh Ready** (Cookie Saved)`;
+          statusText = `Token refreshes <t:${status.expiresAt}:R>`;
+        } else if (status.canAutoRefresh) {
+          statusText = `Refreshes automatically on next command`;
         } else {
-          statusText = `🔴 **Expired** (Run \`/login\` to refresh)`;
+          statusText = `Expired (Run \`/login\` to refresh)`;
         }
 
         return {
           name: `${idx + 1}. ${acc.username} (${acc.region.toUpperCase()})${
-            acc.isActive ? " — ⭐ ACTIVE" : ""
+            acc.isActive ? " - [ACTIVE]" : ""
           }`,
-          value: [
-            `> **Status:** ${statusText}`,
-            `> **Auto-Refresh (Cookie):** ${
-              status.hasCookie ? "✅ Enabled (Long-term)" : "❌ Disabled (1-Hour URL Token)"
-            }`,
-          ].join("\n"),
+          value: [`> **Status:** ${statusText}`].join("\n"),
           inline: false,
         };
       });
@@ -83,11 +80,11 @@ module.exports = class extends Command {
               accList.length > 1 ? "s" : ""
             } linked.`,
             `Use \`/login\` to add another account or refresh an expired session.`,
-          ].join("\n")
+          ].join("\n"),
         )
         .addFields(fields)
         .setFooter({
-          text: "Your active account is used for /store, /bundles, /accessories, /balances & /nightmarket.",
+          text: "Click the dropdown below to switch your active account!",
           iconURL: this.client.user.displayAvatarURL(),
         });
     };
@@ -96,9 +93,7 @@ module.exports = class extends Command {
       const menu = new StringSelectMenuBuilder()
         .setCustomId("accounts-switch-select")
         .setPlaceholder(
-          disabled
-            ? "This account switcher has expired!"
-            : "Select an account to set as Active!"
+          disabled ? "This account switcher has expired!" : "Select an account to set as Active!",
         )
         .setDisabled(disabled)
         .addOptions(
@@ -109,13 +104,13 @@ module.exports = class extends Command {
               value: acc.puuid,
               description: acc.isActive
                 ? "Currently Active Account"
-                : status.valid || status.hasCookie
-                ? "Click to switch to this account"
-                : "Session expired — switch or re-login",
+                : status.valid || status.canAutoRefresh
+                  ? "Click to switch to this account"
+                  : "Session expired — switch or re-login",
               default: acc.isActive,
               emoji: "<:valorant_logo:965476928930852864>",
             };
-          })
+          }),
         );
 
       return new ActionRowBuilder().addComponents(menu);

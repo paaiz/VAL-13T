@@ -34,11 +34,17 @@ db.exec(`
     region TEXT,
     headers TEXT,
     ssid_cookie TEXT,
+    refresh_token TEXT,
     is_active INTEGER DEFAULT 1,
     updated_at INTEGER,
     PRIMARY KEY (user_id, puuid)
   );
 `);
+
+// Ensure existing databases have the `refresh_token` column on `accounts`
+try {
+  db.exec("ALTER TABLE accounts ADD COLUMN refresh_token TEXT;");
+} catch (_) {}
 
 const stmtGetUser = db.prepare("SELECT * FROM users WHERE user_id = ?");
 const stmtGetActiveAccount = db.prepare(`
@@ -63,15 +69,21 @@ const stmtActivateAccount = db.prepare(`
   UPDATE accounts SET is_active = 1, updated_at = ? WHERE user_id = ? AND puuid = ?
 `);
 const stmtUpsertAccount = db.prepare(`
-  INSERT INTO accounts (user_id, puuid, username, region, headers, ssid_cookie, is_active, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  INSERT INTO accounts (user_id, puuid, username, region, headers, ssid_cookie, refresh_token, is_active, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(user_id, puuid) DO UPDATE SET
     username = excluded.username,
     region = excluded.region,
     headers = excluded.headers,
     ssid_cookie = excluded.ssid_cookie,
+    refresh_token = excluded.refresh_token,
     is_active = excluded.is_active,
     updated_at = excluded.updated_at
+`);
+const stmtUpdateAccountSession = db.prepare(`
+  UPDATE accounts
+  SET headers = ?, ssid_cookie = ?, refresh_token = ?, updated_at = ?
+  WHERE user_id = ? AND puuid = ?
 `);
 const stmtDeleteAccountByPuuid = db.prepare(`
   DELETE FROM accounts WHERE user_id = ? AND puuid = ?
@@ -107,6 +119,7 @@ try {
         row.region || "ap",
         row.headers || "{}",
         row.ssid_cookie || null,
+        null,
         1,
         row.updated_at || Date.now()
       );
@@ -127,6 +140,7 @@ const formatAccountRow = (row) => {
     region: row.region,
     headers: parsedHeaders,
     ssidCookie: row.ssid_cookie || null,
+    refreshToken: row.refresh_token || null,
     isActive: row.is_active === 1,
     updatedAt: row.updated_at,
   };
@@ -137,6 +151,14 @@ const formatAccountRow = (row) => {
  */
 const getUser = (userId) => {
   const row = stmtGetActiveAccount.get(String(userId));
+  return formatAccountRow(row);
+};
+
+/**
+ * Retrieves a specific Valorant account by PUUID for a Discord user.
+ */
+const getAccountByPuuid = (userId, puuid) => {
+  const row = stmtGetAccountByPuuid.get(String(userId), String(puuid));
   return formatAccountRow(row);
 };
 
@@ -163,9 +185,41 @@ const saveUser = (userId, userObj) => {
     userObj.region || "ap",
     JSON.stringify(userObj.headers || {}),
     userObj.ssidCookie || null,
+    userObj.refreshToken || null,
     1,
     Date.now()
   );
+};
+
+/**
+ * Updates the session credentials (headers, ssidCookie, refreshToken) for a specific account
+ * without changing active account selection.
+ */
+const updateAccountSession = (userId, puuid, sessionData) => {
+  const uid = String(userId);
+  const targetPuuid = String(puuid);
+  const existing = getAccountByPuuid(uid, targetPuuid);
+  if (!existing) return undefined;
+
+  const nextHeaders =
+    sessionData.headers !== undefined ? sessionData.headers : existing.headers;
+  const nextSsid =
+    sessionData.ssidCookie !== undefined ? sessionData.ssidCookie : existing.ssidCookie;
+  const nextRefresh =
+    sessionData.refreshToken !== undefined
+      ? sessionData.refreshToken
+      : existing.refreshToken;
+
+  stmtUpdateAccountSession.run(
+    JSON.stringify(nextHeaders || {}),
+    nextSsid || null,
+    nextRefresh || null,
+    Date.now(),
+    uid,
+    targetPuuid
+  );
+
+  return getAccountByPuuid(uid, targetPuuid);
 };
 
 /**
@@ -220,8 +274,10 @@ module.exports = {
   DB_PATH,
   MAX_ACCOUNTS_PER_USER,
   getUser,
+  getAccountByPuuid,
   getUserAccounts,
   saveUser,
+  updateAccountSession,
   setActiveAccount,
   deleteUser,
   isUserBlacklisted,
