@@ -1,71 +1,71 @@
-const { ActivityType } = require('discord.js');
-const Event = require('../Structures/Event');
-const { loadWeaponSkins } = require('../Structures/Valorant/Util/Cache');
+const { ActivityType } = require("discord.js");
+const Event = require("../Structures/Event");
+const { loadWeaponSkins } = require("../Structures/Valorant/Util/Cache");
 
 module.exports = class extends Event {
-	constructor(...args) {
-		super(...args, {
-			once: true,
-		});
-	}
+  constructor(...args) {
+    super(...args, {
+      once: true,
+    });
+  }
 
-	async run() {
-		this.client.logger.ready(`Logged In As ${this.client.user.tag}`);
-		this.client.logger.ready(`Loaded ${this.client.events.size} Events!`);
-		this.client.logger.ready(`Loaded ${this.client.prefixCommands.size} Prefix Commands!`);
+  async run() {
+    this.client.logger.ready(`Logged In As ${this.client.user.tag}`);
+    this.client.logger.ready(`Loaded ${this.client.events.size} Events!`);
+    this.client.logger.ready(`Loaded ${this.client.prefixCommands.size} Prefix Commands!`);
 
-		// Update latest weapon skins cache from valorant-api.com
-		await loadWeaponSkins();
+    // Update latest weapon skins cache from valorant-api.com
+    await loadWeaponSkins();
 
-		// Status
-		let number = 0;
-		const updateActivity = () => {
-			const getGuildCount = this.client.guilds.cache.size;
-			const getGuildUsers = this.client.guilds.cache.reduce((a, g) => a + g.memberCount, 0);
+    // Status
+    let number = 0;
+    const updateActivity = () => {
+      const getGuildCount = this.client.guilds.cache.size;
+      const getGuildUsers = this.client.guilds.cache.reduce((a, g) => a + g.memberCount, 0);
 
-			const statusString = [
-				{
-					name: '/help | /store',
-					type: ActivityType.Listening,
-				},
-				{
-					name: `${getGuildCount} Servers & ${getGuildUsers} Users`,
-					type: ActivityType.Watching,
-				},
-			];
+      const statusString = [
+        {
+          name: "/help | /store",
+          type: ActivityType.Listening,
+        },
+        {
+          name: `${getGuildCount} Servers & ${getGuildUsers} Users`,
+          type: ActivityType.Watching,
+        },
+      ];
 
-			this.client.user.setPresence({
-				status: 'online',
-				activities: [statusString[number]],
-			});
+      this.client.user.setPresence({
+        status: "online",
+        activities: [statusString[number]],
+      });
 
-			if (++number >= statusString.length) {
-				number = 0;
-			}
+      if (++number >= statusString.length) {
+        number = 0;
+      }
 
-			setTimeout(updateActivity, 1000 * 60 * 5);
-		};
-		updateActivity();
+      setTimeout(updateActivity, 1000 * 60 * 1);
+    };
+    updateActivity();
 
-		// Load slash command!
-		await this.client.utils.loadSlashCommands().then(() => {
-			this.client.logger.ready(`Loaded ${this.client.commands.size} Slash Commands!`);
-		});
+    // Load slash command!
+    await this.client.utils.loadSlashCommands().then(() => {
+      this.client.logger.ready(`Loaded ${this.client.commands.size} Slash Commands!`);
+    });
 
-		// * Deploying slash commands in global
-		const getSlashData = this.client.commands
-			.filter((x) => x.devMode === false)
-			.map((cmd) => ({
-				name: cmd.name,
-				description: cmd.description,
-				options: cmd.options,
-			}));
+    // * Deploying slash commands in global
+    const getSlashData = this.client.commands
+      .filter((x) => x.devMode === false)
+      .map((cmd) => ({
+        name: cmd.name,
+        description: cmd.description,
+        options: cmd.options,
+      }));
 
-		try {
-			await this.client.application.commands.set(getSlashData);
-			this.client.logger.ready(`Slash Commands Deployed Globally!`);
-		} catch (err) {
-			console.log(err);
-		}
-	}
+    try {
+      await this.client.application.commands.set(getSlashData);
+      this.client.logger.ready(`Slash Commands Deployed Globally!`);
+    } catch (err) {
+      console.log(err);
+    }
+  }
 };
