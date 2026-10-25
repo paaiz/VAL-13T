@@ -6,6 +6,7 @@ const {
   TextInputBuilder,
   TextInputStyle,
   EmbedBuilder,
+  MessageFlags,
 } = require("discord.js");
 const { loginWithUrlOrCookie } = require("../../Structures/Valorant/Valorant");
 
@@ -16,7 +17,7 @@ module.exports = class extends Event {
         const command = this.client.commands.get(interaction.commandName);
 
         if (!command) {
-          return interaction.reply({ content: "Unknown command", ephemeral: true });
+          return interaction.reply({ content: "Unknown command", flags: MessageFlags.Ephemeral });
         }
 
         const args = [];
@@ -43,14 +44,14 @@ module.exports = class extends Event {
         if (command.guildOnly && !interaction.guild) {
           return interaction.reply({
             content: "Sorry, this command only works in a Discord Server!",
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
         }
 
         if (command.ownerOnly && !this.client.utils.checkOwner(interaction.user.id)) {
           return interaction.reply({
             content: "Sorry, this command is available to the Creator of the Bot only!",
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
         }
 
@@ -68,7 +69,7 @@ module.exports = class extends Event {
                 content: `Sorry, you need \`${this.client.utils.formatArray(
                   missing.map(this.client.utils.formatPerms)
                 )}\` permission${grammarCheck} to run this slash command!`,
-                ephemeral: true,
+                flags: MessageFlags.Ephemeral,
               });
             }
           }
@@ -85,7 +86,7 @@ module.exports = class extends Event {
 
         const errorPayload = {
           content: `Something went wrong when trying to run **/${interaction.commandName}**!`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         };
         if (interaction.deferred || interaction.replied) {
           return interaction.followUp(errorPayload);
@@ -101,7 +102,7 @@ module.exports = class extends Event {
             await interaction.message.delete();
             await interaction.reply({
               content: "Successfully deleted guild list!",
-              ephemeral: true,
+              flags: MessageFlags.Ephemeral,
             });
             break;
 
@@ -137,36 +138,52 @@ module.exports = class extends Event {
 
     if (interaction.isModalSubmit()) {
       if (interaction.customId === "valorant_login_modal") {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const input = interaction.fields.getTextInputValue("riot_auth_input");
-        const embed = new EmbedBuilder().setColor("Red");
+        const footerData = {
+          text: "VAL-13T was created by Paiz. Riot Games does not endorse this project.",
+          iconURL: this.client.user.displayAvatarURL(),
+        };
 
         try {
           const getValUser = await loginWithUrlOrCookie(interaction.user.id, input);
 
+          const successEmbed = new EmbedBuilder()
+            .setAuthor({
+              name: "Login Status: SUCCESS",
+              iconURL: interaction.user.displayAvatarURL(),
+            })
+            .setColor("Red")
+            .setDescription(
+              `Successfully logged in as **${getValUser.username}** (\`${getValUser.region.toUpperCase()}\`)!`
+            )
+            .addFields({
+              name: "Available Commands",
+              value: [
+                "> You can now check your Valorant store using **/store**, **/bundles**, **/accessories**, **/balances**, or **/nightmarket**.",
+                "",
+                "Want to unlink your account later? Simply run **/logout** at any time.",
+              ].join("\n"),
+            })
+            .setFooter(footerData);
+
           return interaction.followUp({
-            embeds: [
-              embed
-                .setAuthor({
-                  name: "Login Status: SUCCESS",
-                  iconURL: interaction.user.displayAvatarURL(),
-                })
-                .setDescription(
-                  `Successfully logged in as **${getValUser.username}** (Region: \`${getValUser.region.toUpperCase()}\`)!\nYou can now use \`/store\`, \`/bundles\`, \`/accessories\`, \`/balances\`, or \`/nightmarket\`.`
-                ),
-            ],
+            embeds: [successEmbed],
           });
         } catch (err) {
           this.client.logger.err(`[VALORANT-MODAL-LOGIN] - ${err.message}`);
+
+          const errorEmbed = new EmbedBuilder()
+            .setAuthor({
+              name: "Login Status: ERROR",
+              iconURL: interaction.user.displayAvatarURL(),
+            })
+            .setColor("Red")
+            .setDescription(err.message)
+            .setFooter(footerData);
+
           return interaction.followUp({
-            embeds: [
-              embed
-                .setAuthor({
-                  name: "Login Status: ERROR",
-                  iconURL: interaction.user.displayAvatarURL(),
-                })
-                .setDescription(err.message),
-            ],
+            embeds: [errorEmbed],
           });
         }
       }

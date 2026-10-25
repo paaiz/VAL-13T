@@ -4,6 +4,7 @@ const {
 	ActionRowBuilder,
 	StringSelectMenuBuilder,
 	ComponentType,
+	MessageFlags,
 } = require('discord.js');
 const { links } = require('../../Assets/JSON/config.json');
 
@@ -81,7 +82,7 @@ module.exports = class extends Command {
 			});
 
 			collector.on('collect', async (inter) => {
-				await inter.deferReply({ ephemeral: true });
+				await inter.deferReply({ flags: MessageFlags.Ephemeral });
 
 				const commandNameList = this.client.commands
 					.filter((cmd) => cmd.category.toLowerCase() === inter.values[0].toLowerCase() && cmd.devMode === false)

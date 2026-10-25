@@ -4,6 +4,7 @@ const {
   EmbedBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags,
 } = require('discord.js');
 
 module.exports = class extends Command {
@@ -80,7 +81,7 @@ module.exports = class extends Command {
       if (interaction.user.id !== message.author.id) {
         interaction.reply({
           content: 'This button is not for you!',
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return false;
       }

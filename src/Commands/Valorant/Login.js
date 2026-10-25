@@ -5,11 +5,9 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags,
 } = require("discord.js");
-const {
-  RIOT_AUTH_URL,
-  loginWithUrlOrCookie,
-} = require("../../Structures/Valorant/Valorant");
+const { RIOT_AUTH_URL, loginWithUrlOrCookie } = require("../../Structures/Valorant/Valorant");
 
 module.exports = class extends Command {
   constructor(...args) {
@@ -35,40 +33,48 @@ module.exports = class extends Command {
   async run(interaction) {
     const input = interaction.options.getString("input");
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const embed = new EmbedBuilder().setColor("Red");
+    const footerData = {
+      text: "VAL-13T was created by Paiz. Riot Games does not endorse this project.",
+      iconURL: this.client.user.displayAvatarURL(),
+    };
 
     if (!input) {
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setStyle(ButtonStyle.Link)
-          .setLabel("1. Open Riot Games Login")
+          .setLabel("Open Riot Games Login")
           .setURL(RIOT_AUTH_URL),
         new ButtonBuilder()
           .setStyle(ButtonStyle.Primary)
           .setCustomId("open_login_modal")
-          .setLabel("2. Paste Redirect URL / Cookie")
+          .setLabel("Paste Redirect URL")
       );
 
+      const loginGuideEmbed = new EmbedBuilder()
+        .setTitle(`${this.client.user.username}'s Login Center!`)
+        .setColor("Red")
+        .setDescription(
+          [
+            `Link your **Riot Games** account to check your **Valorant Store** directly on Discord.`,
+            `**${this.client.user.username}** never asks for or stores your Riot password.`,
+          ].join("\n")
+        )
+        .addFields(
+          {
+            name: "Guide",
+            value: [
+              ">>> **1.** Click **Open Riot Games Login** below and sign in through your browser.",
+              "**2.** Once redirected to a 404/blank page (`playvalorant.com/opt_in#access_token=...`), **copy the entire URL** from your address bar.",
+              "**3.** Click **Paste Redirect URL** below and paste the copied URL!",
+            ].join("\n"),
+          }
+        )
+        .setFooter(footerData);
+
       return interaction.followUp({
-        embeds: [
-          embed
-            .setAuthor({
-              name: "How to Log In to VAL-13T",
-              iconURL: interaction.user.displayAvatarURL(),
-            })
-            .setDescription(
-              [
-                "Follow these **2 quick steps** to link your VALORANT account:",
-                "",
-                "1️⃣ Click **1. Open Riot Games Login** below and sign in through your browser.",
-                "2️⃣ Once redirected to a blank page (`playvalorant.com/opt_in#access_token=...`), **copy the entire URL** from your browser's address bar and click **2. Paste Redirect URL / Cookie** below!",
-                "",
-                "💡 *Tip: You can also paste your `ssid` cookie value from your browser so your login session can auto-refresh without needing to log in again!*",
-              ].join("\n")
-            ),
-        ],
+        embeds: [loginGuideEmbed],
         components: [row],
       });
     }
@@ -76,30 +82,42 @@ module.exports = class extends Command {
     try {
       const getValUser = await loginWithUrlOrCookie(interaction.user.id, input);
 
+      const successEmbed = new EmbedBuilder()
+        .setAuthor({
+          name: "Login Status: SUCCESS",
+          iconURL: interaction.user.displayAvatarURL(),
+        })
+        .setColor("Red")
+        .setDescription(
+          `Successfully logged in as **${getValUser.username}** (\`${getValUser.region.toUpperCase()}\`)!`
+        )
+        .addFields({
+          name: "Available Commands",
+          value: [
+            "> You can now check your Valorant store using **/store**, **/bundles**, **/accessories**, **/balances**, or **/nightmarket**.",
+            "",
+            "Want to unlink your account later? Simply run **/logout** at any time.",
+          ].join("\n"),
+        })
+        .setFooter(footerData);
+
       return interaction.followUp({
-        embeds: [
-          embed
-            .setAuthor({
-              name: "Login Status: SUCCESS",
-              iconURL: interaction.user.displayAvatarURL(),
-            })
-            .setDescription(
-              `Successfully logged in as **${getValUser.username}** (Region: \`${getValUser.region.toUpperCase()}\`)!\nYou can now use \`/store\`, \`/bundles\`, \`/accessories\`, \`/balances\`, or \`/nightmarket\`.`
-            ),
-        ],
+        embeds: [successEmbed],
       });
     } catch (err) {
-      console.log(err);
       this.client.logger.err(`[VALORANT-LOGIN] - ${err.message}`);
+
+      const errorEmbed = new EmbedBuilder()
+        .setAuthor({
+          name: "Login Status: ERROR",
+          iconURL: interaction.user.displayAvatarURL(),
+        })
+        .setColor("Red")
+        .setDescription(err.message)
+        .setFooter(footerData);
+
       return interaction.followUp({
-        embeds: [
-          embed
-            .setAuthor({
-              name: "Login Status: ERROR",
-              iconURL: interaction.user.displayAvatarURL(),
-            })
-            .setDescription(err.message),
-        ],
+        embeds: [errorEmbed],
       });
     }
   }

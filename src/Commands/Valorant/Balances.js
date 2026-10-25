@@ -1,5 +1,5 @@
 const Command = require('../../Structures/Command');
-const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
+const { ApplicationCommandOptionType, EmbedBuilder, MessageFlags } = require('discord.js');
 
 const { getBalances } = require('../../Structures/Valorant/Util/Shop');
 
@@ -59,7 +59,7 @@ module.exports = class extends Command {
 							},
 						),
 				],
-				ephemeral: isHidden,
+				...(isHidden ? { flags: MessageFlags.Ephemeral } : {}),
 			});
 		} catch (err) {
 			this.client.logger.err(`[VALORANT-BALANCE] - ${err.message}`);
@@ -69,7 +69,7 @@ module.exports = class extends Command {
 						.setAuthor({ name: 'Balances status: ERROR', iconURL: interaction.user.displayAvatarURL() })
 						.setDescription(err.message),
 				],
-				ephemeral: true,
+				flags: MessageFlags.Ephemeral,
 			});
 		}
 	}

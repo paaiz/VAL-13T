@@ -5,6 +5,7 @@ const {
 	ButtonBuilder,
 	ButtonStyle,
 	ComponentType,
+	MessageFlags,
 } = require('discord.js');
 
 const { genetareNightMarketImage } = require('../../Structures/Valorant/Util/NightmarketDesign');
@@ -73,7 +74,7 @@ module.exports = class extends Command {
 								.setAuthor({ name: 'Nightmarket Status: FAILED', iconURL: interaction.user.displayAvatarURL() })
 								.setDescription('Sorry, this button is not for you!'),
 						],
-						ephemeral: true,
+						flags: MessageFlags.Ephemeral,
 					});
 				}
 
@@ -84,7 +85,7 @@ module.exports = class extends Command {
 
 				switch (inter.customId) {
 					case 'user-disagree':
-						await inter.reply({ content: "Okay, I won't show you 😁", ephemeral: true });
+						await inter.reply({ content: "Okay, I won't show you 😁", flags: MessageFlags.Ephemeral });
 						await msg.edit({ components: [disabledButton] }).catch(() => null);
 						setTimeout(() => msg.delete().catch(() => null), 2000);
 						collector.stop();
@@ -124,7 +125,7 @@ module.exports = class extends Command {
 						.setAuthor({ name: 'Nightmarket Status: ERROR', iconURL: interaction.user.displayAvatarURL() })
 						.setDescription(err.message),
 				],
-				ephemeral: true,
+				flags: MessageFlags.Ephemeral,
 			});
 		}
 	}

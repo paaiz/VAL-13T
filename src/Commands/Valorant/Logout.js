@@ -1,5 +1,5 @@
 const Command = require('../../Structures/Command');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, MessageFlags } = require('discord.js');
 
 const { deleteUser, getUser } = require('../../Structures/Valorant/Valorant');
 
@@ -29,7 +29,7 @@ module.exports = class extends Command {
 						.setAuthor({ name: 'Logout Status: FAILED', iconURL: interaction.user.displayAvatarURL() })
 						.setDescription("Cannot find your account. Try `/login` if you haven't logged in!"),
 				],
-				ephemeral: true,
+				flags: MessageFlags.Ephemeral,
 			});
 
 		try {
@@ -41,7 +41,7 @@ module.exports = class extends Command {
 						.setAuthor({ name: 'Logout Status: SUCCESS', iconURL: interaction.user.displayAvatarURL() })
 						.setDescription(`Successfully logged out for user: **${user.username}**`),
 				],
-				ephemeral: true,
+				flags: MessageFlags.Ephemeral,
 			});
 		} catch (err) {
 			this.client.logger.err(`[VALORANT-LOGOUT] - ${err.message}`);
@@ -51,7 +51,7 @@ module.exports = class extends Command {
 						.setAuthor({ name: 'Logout Status: ERROR', iconURL: interaction.user.displayAvatarURL() })
 						.setDescription(`Something bad happened when trying to log you out. Try again later!`),
 				],
-				ephemeral: true,
+				flags: MessageFlags.Ephemeral,
 			});
 		}
 	}
