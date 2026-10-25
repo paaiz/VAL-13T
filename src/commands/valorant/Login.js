@@ -57,7 +57,7 @@ module.exports = class extends Command {
         new ButtonBuilder()
           .setStyle(ButtonStyle.Primary)
           .setCustomId("open_login_modal")
-          .setLabel("Paste Redirect URL")
+          .setLabel("Paste Redirect URL"),
       );
 
       const loginGuideEmbed = new EmbedBuilder()
@@ -67,7 +67,7 @@ module.exports = class extends Command {
           [
             `Link your **Riot Games** account to check your **Valorant Store** directly on Discord.`,
             `**${this.client.user.username}** never asks for or stores your Riot password.`,
-          ].join("\n")
+          ].join("\n"),
         )
         .addFields(
           {
@@ -77,7 +77,12 @@ module.exports = class extends Command {
               "**2.** Once redirected to a 404/blank page (`playvalorant.com/opt_in#access_token=...`), **copy the entire URL** from your address bar.",
               "**3.** Click **Paste Redirect URL** below and paste the copied URL!",
             ].join("\n"),
-          }
+          },
+          {
+            name: "TIP",
+            value:
+              "Check **'Stay signed in'** and **'Remember this browser for 30 days'** to avoid being signed out.",
+          },
         )
         .setFooter(footerData);
 
@@ -97,7 +102,7 @@ module.exports = class extends Command {
         })
         .setColor("Red")
         .setDescription(
-          `Successfully logged in as **${getValUser.username}** (\`${getValUser.region.toUpperCase()}\`)!`
+          `Successfully logged in as **${getValUser.username}** (\`${getValUser.region.toUpperCase()}\`)!`,
         )
         .addFields({
           name: "Available Commands",
