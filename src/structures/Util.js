@@ -90,7 +90,7 @@ module.exports = class Util {
 	}
 
 	async loadPrefixCommands() {
-		return glob(`${this.directory}prefixcommands/**/*.js`).then((commands) => {
+		return glob(`${this.directory}prefixCommands/**/*.js`).then((commands) => {
 			for (const commandFile of commands) {
 				delete require.cache[commandFile];
 				const { name } = path.parse(commandFile);
