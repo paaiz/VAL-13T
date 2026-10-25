@@ -3,7 +3,7 @@ const axios = require("axios").default;
 const { getUser, saveUser, deleteUser } = require("../database/Database");
 
 const RIOT_AUTH_URL =
-  "https://auth.riotgames.com/authorize?redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&client_id=play-valorant-web-prod&response_type=token%20id_token&nonce=1&scope=account%20openid";
+  "https://auth.riotgames.com/authorize?redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&client_id=play-valorant-web-prod&response_type=token%20id_token&nonce=1&scope=account%20openid&prompt=login";
 
 const ciphers = [
   "TLS_CHACHA20_POLY1305_SHA256",
@@ -63,9 +63,9 @@ const parseUrl = (uri) => {
   const fragment = uri.includes("#") ? uri.split("#")[1] : uri;
   const params = new URLSearchParams(fragment);
 
-  const accessToken = params.get("access_token");
-  const idToken = params.get("id_token");
-  const expiresIn = params.get("expires_in");
+  const accessToken = params.get("access_token")?.trim();
+  const idToken = params.get("id_token")?.trim();
+  const expiresIn = params.get("expires_in")?.trim();
 
   if (!accessToken) {
     throw new ValorantAPIError("Failed to extract `access_token` from the provided URL.");
@@ -158,8 +158,10 @@ const fetchEntitlements = (accessToken) => {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      "User-Agent": "RiotClient/91.0.2.1870.3774 rso-auth (Windows;10;;Professional, x64)",
     },
     data: {},
+    httpsAgent: agent,
   });
 };
 
@@ -170,10 +172,12 @@ const fetchPas = (accessToken, idToken) => {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
+      "User-Agent": "RiotClient/91.0.2.1870.3774 rso-auth (Windows;10;;Professional, x64)",
     },
     data: {
       id_token: idToken,
     },
+    httpsAgent: agent,
   });
 };
 
