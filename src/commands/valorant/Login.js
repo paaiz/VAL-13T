@@ -7,7 +7,11 @@ const {
   ButtonStyle,
   MessageFlags,
 } = require("discord.js");
-const { RIOT_AUTH_URL, loginWithUrlOrCookie } = require("../../structures/valorant/Valorant");
+const {
+  RIOT_AUTH_URL,
+  RIOT_SWITCH_AUTH_URL,
+  loginWithUrlOrCookie,
+} = require("../../structures/valorant/Valorant");
 
 module.exports = class extends Command {
   constructor(...args) {
@@ -47,6 +51,10 @@ module.exports = class extends Command {
           .setLabel("Open Riot Games Login")
           .setURL(RIOT_AUTH_URL),
         new ButtonBuilder()
+          .setStyle(ButtonStyle.Link)
+          .setLabel("Switch / Relogin Account")
+          .setURL(RIOT_SWITCH_AUTH_URL),
+        new ButtonBuilder()
           .setStyle(ButtonStyle.Primary)
           .setCustomId("open_login_modal")
           .setLabel("Paste Redirect URL")
@@ -65,7 +73,7 @@ module.exports = class extends Command {
           {
             name: "Guide",
             value: [
-              ">>> **1.** Click **Open Riot Games Login** below and sign in through your browser.",
+              ">>> **1.** Click **Open Riot Games Login** (or **Switch / Relogin Account** to add another account) and sign in through your browser.",
               "**2.** Once redirected to a 404/blank page (`playvalorant.com/opt_in#access_token=...`), **copy the entire URL** from your address bar.",
               "**3.** Click **Paste Redirect URL** below and paste the copied URL!",
             ].join("\n"),
@@ -94,7 +102,7 @@ module.exports = class extends Command {
         .addFields({
           name: "Available Commands",
           value: [
-            "> You can now check your Valorant store using **/store**, **/bundles**, **/accessories**, **/balances**, or **/nightmarket**.",
+            "> You can now check your Valorant store using **/store**, **/bundles**, **/accessories**, **/balances**, **/nightmarket**, or switch accounts with **/accounts**.",
             "",
             "Want to unlink your account later? Simply run **/logout** at any time.",
           ].join("\n"),

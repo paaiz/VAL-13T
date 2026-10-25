@@ -57,7 +57,7 @@ module.exports = class extends Command {
 						name: 'Guide',
 						value: [
 							'>>> To check your Valorant store, you must **/login** with your Valorant account first.',
-							"After you're successfully logged in, you can use **/store**, **/bundles**, **/accessories**, **/balances**, or **/nightmarket**.",
+							"After you're successfully logged in, you can use **/store**, **/bundles**, **/accessories**, **/balances**, **/nightmarket**, or **/accounts**.",
 						].join('\n'),
 					},
 					{

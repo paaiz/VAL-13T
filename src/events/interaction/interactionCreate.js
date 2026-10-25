@@ -169,7 +169,7 @@ module.exports = class extends Event {
             .addFields({
               name: "Available Commands",
               value: [
-                "> You can now check your Valorant store using **/store**, **/bundles**, **/accessories**, **/balances**, or **/nightmarket**.",
+                "> You can now check your Valorant store using **/store**, **/bundles**, **/accessories**, **/balances**, **/nightmarket**, or switch accounts with **/accounts**.",
                 "",
                 "Want to unlink your account later? Simply run **/logout** at any time.",
               ].join("\n"),

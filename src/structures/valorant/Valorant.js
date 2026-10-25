@@ -1,9 +1,21 @@
 const { Agent } = require("https");
 const axios = require("axios").default;
-const { getUser, saveUser, deleteUser } = require("../database/Database");
+const {
+  MAX_ACCOUNTS_PER_USER,
+  getUser,
+  getUserAccounts,
+  saveUser,
+  setActiveAccount,
+  deleteUser,
+} = require("../database/Database");
 
 const RIOT_AUTH_URL =
+  "https://auth.riotgames.com/authorize?redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&client_id=play-valorant-web-prod&response_type=token%20id_token&nonce=1&scope=account%20openid";
+
+const RIOT_SWITCH_AUTH_URL =
   "https://auth.riotgames.com/authorize?redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&client_id=play-valorant-web-prod&response_type=token%20id_token&nonce=1&scope=account%20openid&prompt=login";
+
+const RIOT_COOKIE_REAUTH_URL = RIOT_AUTH_URL;
 
 const ciphers = [
   "TLS_CHACHA20_POLY1305_SHA256",
@@ -94,7 +106,7 @@ const fetchTokensFromCookie = async (rawCookie) => {
   const cookieHeader = rawCookie.includes("ssid=") ? rawCookie.trim() : `ssid=${rawCookie.trim()}`;
 
   const res = await axios({
-    url: RIOT_AUTH_URL,
+    url: RIOT_COOKIE_REAUTH_URL,
     method: "GET",
     headers: {
       Cookie: cookieHeader,
@@ -229,9 +241,9 @@ const getIngameUsername = async (accessToken, region, puuid, headers) => {
  * @return {Promise<object>} User data with headers, puuid, region, and username
  */
 const loginWithUrlOrCookie = async (id, input) => {
-  const existingUser = getUser(id) || {};
+  const existingAccounts = getUserAccounts(id);
   let tokens;
-  let ssidCookie = existingUser.ssidCookie || null;
+  let newSsidCookie = null;
 
   const trimmed = input.trim();
   if (trimmed.includes("access_token=")) {
@@ -239,25 +251,34 @@ const loginWithUrlOrCookie = async (id, input) => {
   } else if (trimmed.startsWith("eyJ") || trimmed.startsWith("ssid=eyJ")) {
     const cookieResult = await fetchTokensFromCookie(trimmed);
     tokens = cookieResult.tokens;
-    ssidCookie = cookieResult.ssidCookie;
+    newSsidCookie = cookieResult.ssidCookie;
   } else {
     throw new ValorantAPIError(
       "Invalid Redirect URL! Please copy the full URL from your browser's address bar after signing in (it must contain `#access_token=...`)."
     );
   }
 
-  const entitlementsResponse = await fetchEntitlements(tokens.accessToken).catch((err) => {
-    throw new ValorantAPIError(
-      "Failed to fetch Entitlements Token from Riot. Please make sure your Redirect URL or token hasn't expired!",
-      err.response?.data
-    );
-  });
-  tokens.entitlementsToken = entitlementsResponse.data.entitlements_token;
-
   const tokenPayload = JSON.parse(
     Buffer.from(tokens.accessToken.split(".")[1], "base64").toString()
   );
   const puuid = tokenPayload.sub;
+
+  const existingAccount = existingAccounts.find((acc) => acc.puuid === puuid);
+  if (!existingAccount && existingAccounts.length >= MAX_ACCOUNTS_PER_USER) {
+    throw new ValorantAPIError(
+      `You have reached the maximum limit of **${MAX_ACCOUNTS_PER_USER} linked accounts**! Please run \`/logout\` to remove an account first.`
+    );
+  }
+
+  const ssidCookie = newSsidCookie || existingAccount?.ssidCookie || null;
+
+  const entitlementsResponse = await fetchEntitlements(tokens.accessToken).catch((err) => {
+    throw new ValorantAPIError(
+      "Failed to fetch Entitlements Token from Riot. If you were auto-redirected, please click **Switch / Relogin Account** to sign in again!",
+      err.response?.data
+    );
+  });
+  tokens.entitlementsToken = entitlementsResponse.data.entitlements_token;
 
   let region = "ap";
   if (tokens.idToken) {
@@ -265,10 +286,10 @@ const loginWithUrlOrCookie = async (id, input) => {
       const pasTokenResponse = await fetchPas(tokens.accessToken, tokens.idToken);
       region = pasTokenResponse.data?.affinities?.live || "ap";
     } catch (_) {
-      region = existingUser.region || "ap";
+      region = existingAccount?.region || "ap";
     }
-  } else if (existingUser.region) {
-    region = existingUser.region;
+  } else if (existingAccount?.region) {
+    region = existingAccount.region;
   }
 
   const versionResponse = await fetchValorantVersion();
@@ -294,6 +315,29 @@ const loginWithUrlOrCookie = async (id, input) => {
 };
 
 /**
+ * Checks whether an account's stored JWT access token is still valid or expired.
+ */
+const checkAccountStatus = (account) => {
+  try {
+    const authHeader = account?.headers?.Authorization || "";
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!token) {
+      return { valid: false, expiresAt: null, hasCookie: Boolean(account?.ssidCookie) };
+    }
+    const payload = JSON.parse(Buffer.from(token.split(".")[1], "base64").toString());
+    const exp = payload.exp || 0;
+    const nowSec = Math.floor(Date.now() / 1000);
+    return {
+      valid: exp > nowSec + 30,
+      expiresAt: exp,
+      hasCookie: Boolean(account?.ssidCookie),
+    };
+  } catch (_) {
+    return { valid: false, expiresAt: null, hasCookie: Boolean(account?.ssidCookie) };
+  }
+};
+
+/**
  * Attempts to refresh a user's session if they have an ssidCookie saved.
  */
 const reauthorizeUser = async (id) => {
@@ -312,12 +356,17 @@ const getValorantUser = loginWithUrlOrCookie;
 
 module.exports = {
   RIOT_AUTH_URL,
+  RIOT_SWITCH_AUTH_URL,
+  MAX_ACCOUNTS_PER_USER,
   ValorantAPIError,
   loginWithUrlOrCookie,
   reauthorizeUser,
+  checkAccountStatus,
   getValorantUser,
   getUser,
+  getUserAccounts,
   saveUser,
+  setActiveAccount,
   deleteUser,
   makeHeaders,
 };
