@@ -25,7 +25,7 @@ module.exports = class extends Command {
       const mainEmbed = new EmbedBuilder()
         .setColor("Red")
         .setAuthor({
-          name: `Accessory Store — ${username}`,
+          name: `Accessory Store information for: ${username}`,
           iconURL: interaction.user.displayAvatarURL(),
         })
         .setDescription(`Accessory Store rotation expires <t:${expiresAt}:R>`)

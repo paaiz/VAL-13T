@@ -26,7 +26,7 @@ module.exports = class extends Command {
         const eb = new EmbedBuilder()
           .setColor("Red")
           .setAuthor({
-            name: `Featured Bundle — ${username}`,
+            name: `Featured Bundle information for: ${username}`,
             iconURL: interaction.user.displayAvatarURL(),
           })
           .setTitle(`🔥 ${bundle.name}`)
