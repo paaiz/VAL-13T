@@ -174,10 +174,11 @@ npm start
 ---
 
 ### Step 1: Clone the Repository on Your Server
-SSH into your homelab/server and clone the project:
+SSH into your homelab/server and clone the project (use SSH if the repository is private):
 
 ```bash
-git clone https://github.com/PaizTralala/VAL-13T.git
+# Via SSH (recommended for private repo / Deploy Key)
+git clone git@github.com:PaizTralala/VAL-13T.git
 cd VAL-13T
 ```
 
