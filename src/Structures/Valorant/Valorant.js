@@ -237,10 +237,14 @@ const loginWithUrlOrCookie = async (id, input) => {
   const trimmed = input.trim();
   if (trimmed.includes("access_token=")) {
     tokens = parseUrl(trimmed);
-  } else {
+  } else if (trimmed.startsWith("eyJ") || trimmed.startsWith("ssid=eyJ")) {
     const cookieResult = await fetchTokensFromCookie(trimmed);
     tokens = cookieResult.tokens;
     ssidCookie = cookieResult.ssidCookie;
+  } else {
+    throw new ValorantAPIError(
+      "Invalid Redirect URL! Please copy the full URL from your browser's address bar after signing in (it must contain `#access_token=...`)."
+    );
   }
 
   const entitlementsResponse = await fetchEntitlements(tokens.accessToken).catch((err) => {
