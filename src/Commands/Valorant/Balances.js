@@ -1,12 +1,12 @@
 const Command = require('../../Structures/Command');
-const { CommandInteraction, MessageEmbed } = require('discord.js');
+const { ApplicationCommandOptionType, EmbedBuilder } = require('discord.js');
 
 const { getBalances } = require('../../Structures/Valorant/Util/Shop');
 
 module.exports = class extends Command {
 	constructor(...args) {
 		super(...args, {
-			description: 'Check your current Valorant balances.',
+			description: 'Check your current Valorant balances (VP, RP, Kingdom Credits).',
 			category: 'Valorant',
 			categoryEmoji: '<:valorant_logo:965476928930852864>',
 			guildOnly: true,
@@ -17,38 +17,47 @@ module.exports = class extends Command {
 				{
 					name: 'hide',
 					description: 'Hide or unhide your balance to others',
-					type: 'BOOLEAN',
+					type: ApplicationCommandOptionType.Boolean,
 					required: false,
 				},
 			],
 		});
 	}
 
-	/**
-	 *
-	 * @param {CommandInteraction} interaction
-	 * @param {String[]} args
-	 *
-	 */
-	async run(interaction, args) {
+	async run(interaction) {
 		let isHidden = interaction.options.getBoolean('hide');
 		if (isHidden === null) isHidden = true;
 
-		const embed = new MessageEmbed().setColor('RED');
+		const embed = new EmbedBuilder().setColor('Red');
 
 		try {
 			const userBalance = await getBalances(interaction.user.id);
 
-			interaction.reply({
+			await interaction.reply({
 				embeds: [
 					embed
 						.setAuthor({
 							name: `Balances information for: ${userBalance.username}`,
-							iconURL: interaction.user.displayAvatarURL({ dynamic: true }),
+							iconURL: interaction.user.displayAvatarURL(),
 						})
-						.setColor('RED')
-						.addField(`<:vp_png:974611751146496020> Valorant Point${userBalance.vp > 1 ? 's' : ''} (VP)`, `${userBalance.vp}`, true)
-						.addField(`<:rp_png:974612286041915422> Radianite Point${userBalance.rp > 1 ? 's' : ''} (RP)`, `${userBalance.rp}`, true),
+						.setColor('Red')
+						.addFields(
+							{
+								name: `<:vp_png:974611751146496020> Valorant Point${userBalance.vp > 1 ? 's' : ''} (VP)`,
+								value: `${userBalance.vp.toLocaleString()}`,
+								inline: true,
+							},
+							{
+								name: `<:rp_png:974612286041915422> Radianite Point${userBalance.rp > 1 ? 's' : ''} (RP)`,
+								value: `${userBalance.rp.toLocaleString()}`,
+								inline: true,
+							},
+							{
+								name: `👑 Kingdom Credit${userBalance.kc > 1 ? 's' : ''} (KC)`,
+								value: `${userBalance.kc.toLocaleString()}`,
+								inline: true,
+							},
+						),
 				],
 				ephemeral: isHidden,
 			});
@@ -57,7 +66,7 @@ module.exports = class extends Command {
 			return interaction.reply({
 				embeds: [
 					embed
-						.setAuthor({ name: 'Balances status: ERROR', iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+						.setAuthor({ name: 'Balances status: ERROR', iconURL: interaction.user.displayAvatarURL() })
 						.setDescription(err.message),
 				],
 				ephemeral: true,

@@ -1,5 +1,5 @@
 const Command = require('../../Structures/Command');
-const { CommandInteraction, MessageEmbed } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 
 const { deleteUser, getUser } = require('../../Structures/Valorant/Valorant');
 
@@ -17,23 +17,17 @@ module.exports = class extends Command {
 		});
 	}
 
-	/**
-	 *
-	 * @param {CommandInteraction} interaction
-	 * @param {String[]} args
-	 *
-	 */
-	async run(interaction, args) {
+	async run(interaction) {
 		const user = getUser(interaction.user.id);
 
-		const embed = new MessageEmbed().setColor('RED');
+		const embed = new EmbedBuilder().setColor('Red');
 
 		if (!user)
 			return interaction.reply({
 				embeds: [
 					embed
-						.setAuthor({ name: 'Logout Status: FAILED', iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
-						.setDescription("Cannot find your account. Try `/login` if you haven't login!"),
+						.setAuthor({ name: 'Logout Status: FAILED', iconURL: interaction.user.displayAvatarURL() })
+						.setDescription("Cannot find your account. Try `/login` if you haven't logged in!"),
 				],
 				ephemeral: true,
 			});
@@ -44,8 +38,8 @@ module.exports = class extends Command {
 			return interaction.reply({
 				embeds: [
 					embed
-						.setAuthor({ name: 'Logout Status: SUCCESS', iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
-						.setDescription(`Successfully logged out for a current user: **${user.username}**`),
+						.setAuthor({ name: 'Logout Status: SUCCESS', iconURL: interaction.user.displayAvatarURL() })
+						.setDescription(`Successfully logged out for user: **${user.username}**`),
 				],
 				ephemeral: true,
 			});
@@ -54,8 +48,8 @@ module.exports = class extends Command {
 			return interaction.reply({
 				embeds: [
 					embed
-						.setAuthor({ name: 'Logout Status: ERROR', iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
-						.setDescription(`Something bad happened when trying to logging you out. Try again later!`),
+						.setAuthor({ name: 'Logout Status: ERROR', iconURL: interaction.user.displayAvatarURL() })
+						.setDescription(`Something bad happened when trying to log you out. Try again later!`),
 				],
 				ephemeral: true,
 			});

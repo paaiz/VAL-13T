@@ -1,4 +1,6 @@
+const { ActivityType } = require('discord.js');
 const Event = require('../Structures/Event');
+const { loadWeaponSkins } = require('../Structures/Valorant/Util/Cache');
 
 module.exports = class extends Event {
 	constructor(...args) {
@@ -10,8 +12,10 @@ module.exports = class extends Event {
 	async run() {
 		this.client.logger.ready(`Logged In As ${this.client.user.tag}`);
 		this.client.logger.ready(`Loaded ${this.client.events.size} Events!`);
-
 		this.client.logger.ready(`Loaded ${this.client.prefixCommands.size} Prefix Commands!`);
+
+		// Update latest weapon skins cache from valorant-api.com
+		await loadWeaponSkins();
 
 		// Status
 		let number = 0;
@@ -21,12 +25,12 @@ module.exports = class extends Event {
 
 			const statusString = [
 				{
-					name: '/help',
-					type: 'LISTENING',
+					name: '/help | /store',
+					type: ActivityType.Listening,
 				},
 				{
 					name: `${getGuildCount} Servers & ${getGuildUsers} Users`,
-					type: 'WATCHING',
+					type: ActivityType.Watching,
 				},
 			];
 
@@ -49,11 +53,16 @@ module.exports = class extends Event {
 		});
 
 		// * Deploying slash commands in global
-		const getSlashData = this.client.commands.map((x) => x);
-		const devModeFalse = getSlashData.filter((x) => x.devMode === false);
+		const getSlashData = this.client.commands
+			.filter((x) => x.devMode === false)
+			.map((cmd) => ({
+				name: cmd.name,
+				description: cmd.description,
+				options: cmd.options,
+			}));
 
 		try {
-			await this.client.application.commands.set(devModeFalse);
+			await this.client.application.commands.set(getSlashData);
 			this.client.logger.ready(`Slash Commands Deployed Globally!`);
 		} catch (err) {
 			console.log(err);

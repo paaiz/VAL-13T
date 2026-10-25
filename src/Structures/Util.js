@@ -16,7 +16,7 @@ module.exports = class Util {
 	}
 
 	get directory() {
-		return `${path.dirname(require.main.filename)}${path.sep}`;
+		return `${path.resolve(__dirname, '..').replace(/\\/g, '/')}/`;
 	}
 
 	removeDuplicates(arr) {
@@ -90,7 +90,7 @@ module.exports = class Util {
 	}
 
 	async loadPrefixCommands() {
-		return glob(`${this.directory}/PrefixCommands/**/*.js`).then((commands) => {
+		return glob(`${this.directory}PrefixCommands/**/*.js`).then((commands) => {
 			for (const commandFile of commands) {
 				delete require.cache[commandFile];
 				const { name } = path.parse(commandFile);
@@ -109,7 +109,7 @@ module.exports = class Util {
 	}
 
 	async loadSlashCommands() {
-		return glob(`${this.directory}/Commands/**/*.js`).then((slashCmd) => {
+		return glob(`${this.directory}Commands/**/*.js`).then((slashCmd) => {
 			for (const slashFile of slashCmd) {
 				delete require.cache[slashFile];
 				const { name } = path.parse(slashFile);

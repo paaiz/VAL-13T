@@ -1,5 +1,5 @@
 const Command = require('../../Structures/Command');
-const { CommandInteraction, MessageEmbed } = require('discord.js');
+const { EmbedBuilder } = require('discord.js');
 
 const { getDailyStore } = require('../../Structures/Valorant/Util/Shop');
 const { generateDailyStoreImage } = require('../../Structures/Valorant/Util/StoreDesign');
@@ -8,7 +8,7 @@ const { getUser } = require('../../Structures/Valorant/Valorant');
 module.exports = class extends Command {
 	constructor(...args) {
 		super(...args, {
-			description: 'Fetch your current Valorant store!',
+			description: 'Fetch your current Valorant daily store!',
 			category: 'Valorant',
 			categoryEmoji: '<:valorant_logo:965476928930852864>',
 			guildOnly: true,
@@ -19,16 +19,10 @@ module.exports = class extends Command {
 		});
 	}
 
-	/**
-	 *
-	 * @param {CommandInteraction} interaction
-	 * @param {String[]} args
-	 *
-	 */
-	async run(interaction, args) {
+	async run(interaction) {
 		await interaction.deferReply();
 
-		const embed = new MessageEmbed().setColor('RED');
+		const embed = new EmbedBuilder().setColor('Red');
 
 		try {
 			const dailyStore = await getDailyStore(interaction.user.id);
@@ -36,15 +30,15 @@ module.exports = class extends Command {
 
 			const user = getUser(interaction.user.id);
 
-			interaction.followUp({
+			await interaction.followUp({
 				embeds: [
 					embed
 						.setAuthor({
 							name: `Store information for: ${user.username}`,
-							iconURL: interaction.user.displayAvatarURL({ dynamic: true }),
+							iconURL: interaction.user.displayAvatarURL(),
 						})
-						.setColor('RED')
-						.setDescription(`This store are expired <t:${dailyStore.convertedStoreDuration}:R>`)
+						.setColor('Red')
+						.setDescription(`This store expires <t:${dailyStore.convertedStoreDuration}:R>`)
 						.setImage('attachment://store.png'),
 				],
 				files: [image],
@@ -52,10 +46,10 @@ module.exports = class extends Command {
 		} catch (err) {
 			this.client.logger.err(`[VALORANT-STORE] - ${err.message}`);
 			console.log(err);
-			interaction.followUp({
+			await interaction.followUp({
 				embeds: [
 					embed
-						.setAuthor({ name: 'Store Status: ERROR', iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+						.setAuthor({ name: 'Store Status: ERROR', iconURL: interaction.user.displayAvatarURL() })
 						.setDescription(err.message),
 				],
 			});

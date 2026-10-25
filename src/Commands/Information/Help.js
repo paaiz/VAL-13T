@@ -1,6 +1,11 @@
 const Command = require('../../Structures/Command');
-const { CommandInteraction, MessageEmbed, MessageActionRow, MessageSelectMenu } = require('discord.js');
-const { links, client } = require('../../Assets/JSON/config.json');
+const {
+	EmbedBuilder,
+	ActionRowBuilder,
+	StringSelectMenuBuilder,
+	ComponentType,
+} = require('discord.js');
+const { links } = require('../../Assets/JSON/config.json');
 
 module.exports = class extends Command {
 	constructor(...args) {
@@ -16,13 +21,7 @@ module.exports = class extends Command {
 		});
 	}
 
-	/**
-	 *
-	 * @param {CommandInteraction} interaction
-	 * @param {String[]} args
-	 *
-	 */
-	async run(interaction, args) {
+	async run(interaction) {
 		try {
 			const getUsers = this.client.guilds.cache.reduce((a, g) => a + g.memberCount, 0);
 			const getGuildCount = this.client.guilds.cache.size;
@@ -36,72 +35,76 @@ module.exports = class extends Command {
 				})),
 			);
 
-			const selectMenu = new MessageActionRow().addComponents(
-				new MessageSelectMenu().setCustomId('help-menu').addOptions(getCategory).setPlaceholder('Select a category!'),
-			);
+			const menuComponent = new StringSelectMenuBuilder()
+				.setCustomId('help-menu')
+				.addOptions(getCategory)
+				.setPlaceholder('Select a category!');
 
-			const mainMenuEmbed = new MessageEmbed()
+			const selectMenu = new ActionRowBuilder().addComponents(menuComponent);
+
+			const mainMenuEmbed = new EmbedBuilder()
 				.setTitle(`${this.client.user.username}'s Help Center!`)
-				.setColor('RED')
+				.setColor('Red')
 				.setDescription(
 					[
 						`A short brief. **${this.client.user.username}** allows you to check your current **Valorant Store!**`,
 						`I'm currently serving **${getUsers}** users, and I'm in **${getGuildCount}** servers!`,
 					].join('\n'),
 				)
-				.addField(
-					'Guide',
-					[
-						'>>> To check your Valorant store, you must **/login** with your Valorant account first.',
-						"After you're successfully logged in, you can either do **/store** or **/nightmarket**.",
-					].join('\n'),
-				)
-				.addField(
-					'Useful Links',
-					[
-						`[Invite Me!](${links.botInvite}) | [Support Server](${links.supportInvite}) | [Support Me!](${links.saweria})`,
-						'',
-						'To see my slash commands, click the select menu below!',
-					].join('\n'),
+				.addFields(
+					{
+						name: 'Guide',
+						value: [
+							'>>> To check your Valorant store, you must **/login** with your Valorant account first.',
+							"After you're successfully logged in, you can use **/store**, **/bundles**, **/accessories**, **/balances**, or **/nightmarket**.",
+						].join('\n'),
+					},
+					{
+						name: 'Useful Links',
+						value: [
+							`[Invite Me!](${links.botInvite}) | [Support Server](${links.supportInvite}) | [Support Me!](${links.saweria})`,
+							'',
+							'To see my slash commands, click the select menu below!',
+						].join('\n'),
+					},
 				)
 				.setFooter({
-					text: 'VAL-13T was created by Paiz#5599. Riot Games does not endorse this project.',
+					text: 'VAL-13T was created by Paiz. Riot Games does not endorse this project.',
 					iconURL: this.client.user.displayAvatarURL(),
 				});
 
 			const msg = await interaction.reply({ embeds: [mainMenuEmbed], components: [selectMenu], fetchReply: true });
 
-			const filter = async (interaction) => interaction.customId === 'help-menu';
-
-			const collector = interaction.channel.createMessageComponentCollector({
-				filter,
-				time: 8000,
-				componentType: 'SELECT_MENU',
+			const collector = msg.createMessageComponentCollector({
+				time: 15000,
+				componentType: ComponentType.StringSelect,
 			});
 
-			collector.on('collect', async (interaction) => {
-				await interaction.deferReply({ ephemeral: true });
+			collector.on('collect', async (inter) => {
+				await inter.deferReply({ ephemeral: true });
 
 				const commandNameList = this.client.commands
-					.filter((cmd) => cmd.category.toLowerCase() === interaction.values[0].toLowerCase() && cmd.devMode === false)
-					.map((cmd) => `${cmd.name}\n<:anotha_curve:965498554728742932> ${cmd.description}`);
+					.filter((cmd) => cmd.category.toLowerCase() === inter.values[0].toLowerCase() && cmd.devMode === false)
+					.map((cmd) => `\`/${cmd.name}\`\n<:anotha_curve:965498554728742932> ${cmd.description}`);
 
-				const collectorEmbed = new MessageEmbed()
-					.setTitle(`${this.client.utils.capitalise(interaction.values[0])} Category Command Lists!`)
-					.setColor('RED')
+				const collectorEmbed = new EmbedBuilder()
+					.setTitle(`${this.client.utils.capitalise(inter.values[0])} Category Command Lists!`)
+					.setColor('Red')
 					.setDescription(commandNameList.join('\n'));
 
 				collector.resetTimer({ time: 15000, idle: 15000 });
 
-				interaction.followUp({ embeds: [collectorEmbed] });
+				await inter.followUp({ embeds: [collectorEmbed] });
 			});
 
-			collector.on('end', (interaction) => {
-				const disabledMenu = new MessageActionRow().addComponents(
-					selectMenu.components[0].setDisabled(true).setPlaceholder('This select menu has expired!'),
+			collector.on('end', () => {
+				const disabledMenu = new ActionRowBuilder().addComponents(
+					StringSelectMenuBuilder.from(menuComponent)
+						.setDisabled(true)
+						.setPlaceholder('This select menu has expired!'),
 				);
 
-				msg.edit({ embeds: [mainMenuEmbed], components: [disabledMenu] });
+				msg.edit({ embeds: [mainMenuEmbed], components: [disabledMenu] }).catch(() => null);
 			});
 		} catch (err) {
 			this.client.logger.err(`[INFORMATION-HELP] - ${err.message}`);

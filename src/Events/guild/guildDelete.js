@@ -1,35 +1,41 @@
-const Event = require('../../Structures/Event');
-const { MessageEmbed, WebhookClient, Guild } = require('discord.js');
-const guildSchema = require('../../Structures/Database/Schema/GuildSchema');
+const Event = require("../../Structures/Event");
+const { EmbedBuilder, WebhookClient } = require("discord.js");
+const guildSchema = require("../../Structures/Database/Schema/GuildSchema");
 
 module.exports = class extends Event {
-	/**
-	 *
-	 * @param {Guild} guild
-	 */
-	async run(guild) {
-		try {
-			await guildSchema.findOneAndDelete({ guildId: guild.id });
+  async run(guild) {
+    try {
+      if (process.env.MONGODB_URI) {
+        await guildSchema.findOneAndDelete({ guildId: guild.id }).catch(() => null);
+      }
 
-			const webhookClient = new WebhookClient({
-				url: process.env.LEAVE_WEBHOOK,
-			});
-			const timestamp = Math.floor(Date.now() / 1000);
+      if (!process.env.LEAVE_WEBHOOK) return;
 
-			const embed = new MessageEmbed()
-				.setAuthor({
-					name: `${this.client.user.username} has left a Server!`,
-					iconURL: guild.iconURL({ dynamic: true }) ? guild.iconURL({ dynamic: true }) : null,
-				})
-				.setColor('RED')
-				.setThumbnail(guild.iconURL({ dynamic: true }) ? guild.iconURL({ dynamic: true }) : null)
-				.setDescription(`Left Date: <t:${timestamp}>`)
-				.addField('Guild Name', `${guild.name} (${guild.id})`)
-				.addField('Guild Owner', `[${(await guild.fetchOwner()).user.tag}] (${guild.ownerId})`, true)
-				.addField('Guild Members', `${guild.memberCount}`, true);
-			webhookClient.send({ embeds: [embed] });
-		} catch (err) {
-			this.client.logger.err(`[EVENT-guildDelete] - ${err.message}`);
-		}
-	}
+      const webhookClient = new WebhookClient({
+        url: process.env.LEAVE_WEBHOOK,
+      });
+      const timestamp = Math.floor(Date.now() / 1000);
+
+      const embed = new EmbedBuilder()
+        .setAuthor({
+          name: `${this.client.user.username} has left a Server!`,
+          iconURL: guild.iconURL() || undefined,
+        })
+        .setColor("Red")
+        .setThumbnail(guild.iconURL() || null)
+        .setDescription(`Left Date: <t:${timestamp}>`)
+        .addFields(
+          { name: "Guild Name", value: `${guild.name} (${guild.id})` },
+          {
+            name: "Guild Owner",
+            value: `[${(await guild.fetchOwner()).user.tag}] (${guild.ownerId})`,
+            inline: true,
+          },
+          { name: "Guild Members", value: `${guild.memberCount}`, inline: true }
+        );
+      webhookClient.send({ embeds: [embed] });
+    } catch (err) {
+      this.client.logger.err(`[EVENT-guildDelete] - ${err.message}`);
+    }
+  }
 };
