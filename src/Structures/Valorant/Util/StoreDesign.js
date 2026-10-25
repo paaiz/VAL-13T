@@ -6,7 +6,7 @@ const CANVAS_WIDTH = 1089;
 const CANVAS_HEIGHT = 417;
 
 GlobalFonts.registerFromPath(
-  path.resolve(__dirname, "../Assets/Fonts/Latinotype-EstandarRd-Regular.otf"),
+  path.resolve(__dirname, "../../../assets/fonts/Latinotype-EstandarRd-Regular.otf"),
   "Latino Type Standard"
 );
 
@@ -57,7 +57,7 @@ const generateDailyStoreImage = async (skins) => {
 
   // Background
   const background = await loadImage(
-    path.resolve(__dirname, "../Assets/Images/store_background.png")
+    path.resolve(__dirname, "../../../assets/images/store_background.png")
   );
   ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 

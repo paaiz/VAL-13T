@@ -1,14 +1,14 @@
 {
 	"name": "val-13t",
-	"version": "1.0.0",
-	"description": "A Valorant Discord Bot that can checks your Valorant daily store",
+	"version": "2.0.0",
+	"description": "A Valorant Discord Bot that checks your Valorant daily store, bundles, accessories, and night market",
 	"main": "src/index.js",
 	"scripts": {
-		"start": "node src/index.js",
+		"start": "node --no-warnings src/index.js",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"engines": {
-		"node": ">=18.0.0"
+		"node": ">=22.5.0"
 	},
 	"author": "PaizTralala",
 	"license": "MIT",
@@ -19,8 +19,6 @@
 		"discord.js": "^14.16.3",
 		"dotenv": "^16.0.0",
 		"glob": "^7.2.0",
-		"moment": "^2.29.1",
-		"mongoose": "^8.8.1",
 		"node-cron": "^3.0.0"
 	}
 }

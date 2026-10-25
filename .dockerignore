@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.vscode
+.env
+data
+public
+README.md
+TERMS_OF_SERVICE.md
+PRIVACY_POLICY.md

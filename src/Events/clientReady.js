@@ -1,6 +1,7 @@
 const { ActivityType } = require("discord.js");
-const Event = require("../Structures/Event");
-const { loadWeaponSkins } = require("../Structures/Valorant/Util/Cache");
+const cron = require("node-cron");
+const Event = require("../structures/Event");
+const { loadWeaponSkins } = require("../structures/valorant/util/Cache");
 
 module.exports = class extends Event {
   constructor(...args) {
@@ -14,8 +15,17 @@ module.exports = class extends Event {
     this.client.logger.ready(`Loaded ${this.client.events.size} Events!`);
     this.client.logger.ready(`Loaded ${this.client.prefixCommands.size} Prefix Commands!`);
 
-    // Update latest weapon skins cache from valorant-api.com
+    // Update latest weapon skins cache from valorant-api.com on startup
     await loadWeaponSkins();
+
+    // Auto-sync weapon skins daily at 07:00 WIB (Valorant store reset time)
+    cron.schedule(
+      "0 7 * * *",
+      async () => {
+        await loadWeaponSkins();
+      },
+      { timezone: "Asia/Jakarta" }
+    );
 
     // Status
     let number = 0;

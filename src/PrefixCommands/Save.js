@@ -1,7 +1,7 @@
-const Command = require('../Structures/PrefixCommand');
+const Command = require('../structures/PrefixCommand');
 const { Message } = require('discord.js');
 
-const { loadWeaponSkins } = require('../Structures/Valorant/Util/Cache');
+const { loadWeaponSkins } = require('../structures/valorant/util/Cache');
 
 module.exports = class extends Command {
 	constructor(...args) {
@@ -23,4 +23,4 @@ module.exports = class extends Command {
 
 		return message.reply({ content: 'Successfully saved new valorant skins!' });
 	}
-};
+};

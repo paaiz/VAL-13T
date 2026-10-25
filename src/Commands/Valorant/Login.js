@@ -1,4 +1,4 @@
-const Command = require("../../Structures/Command");
+const Command = require("../../structures/Command");
 const {
   ApplicationCommandOptionType,
   EmbedBuilder,
@@ -7,7 +7,7 @@ const {
   ButtonStyle,
   MessageFlags,
 } = require("discord.js");
-const { RIOT_AUTH_URL, loginWithUrlOrCookie } = require("../../Structures/Valorant/Valorant");
+const { RIOT_AUTH_URL, loginWithUrlOrCookie } = require("../../structures/valorant/Valorant");
 
 module.exports = class extends Command {
   constructor(...args) {

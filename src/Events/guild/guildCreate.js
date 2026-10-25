@@ -1,14 +1,9 @@
-const Event = require("../../Structures/Event");
+const Event = require("../../structures/Event");
 const { EmbedBuilder, WebhookClient } = require("discord.js");
-const guildSchema = require("../../Structures/Database/Schema/GuildSchema");
 
 module.exports = class extends Event {
   async run(guild) {
     try {
-      if (process.env.MONGODB_URI) {
-        await guildSchema.create({ guildId: guild.id }).catch(() => null);
-      }
-
       if (!process.env.JOIN_WEBHOOK) return;
 
       const webhookClient = new WebhookClient({

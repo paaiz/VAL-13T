@@ -3,6 +3,7 @@
 
 node_modules
 public
+data
 
 users.json
 config.json

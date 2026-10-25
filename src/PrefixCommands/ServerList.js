@@ -1,4 +1,4 @@
-const Command = require('../Structures/PrefixCommand');
+const Command = require('../structures/PrefixCommand');
 const {
   ActionRowBuilder,
   EmbedBuilder,

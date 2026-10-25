@@ -1,7 +1,7 @@
-const Command = require('../../Structures/Command');
+const Command = require('../../structures/Command');
 const { EmbedBuilder, MessageFlags } = require('discord.js');
 
-const { deleteUser, getUser } = require('../../Structures/Valorant/Valorant');
+const { deleteUser, getUser } = require('../../structures/valorant/Valorant');
 
 module.exports = class extends Command {
 	constructor(...args) {

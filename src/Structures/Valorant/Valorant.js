@@ -1,7 +1,6 @@
 const { Agent } = require("https");
 const axios = require("axios").default;
-const fs = require("fs");
-const path = require("path");
+const { getUser, saveUser, deleteUser } = require("../database/Database");
 
 const RIOT_AUTH_URL =
   "https://auth.riotgames.com/authorize?redirect_uri=https%3A%2F%2Fplayvalorant.com%2Fopt_in&client_id=play-valorant-web-prod&response_type=token%20id_token&nonce=1&scope=account%20openid";
@@ -94,7 +93,6 @@ const makeHeaders = (accessToken, entitlementsToken, clientVersion) => {
 const fetchTokensFromCookie = async (rawCookie) => {
   const cookieHeader = rawCookie.includes("ssid=") ? rawCookie.trim() : `ssid=${rawCookie.trim()}`;
 
-  // Try GET authorize redirect first
   const res = await axios({
     url: RIOT_AUTH_URL,
     method: "GET",
@@ -116,7 +114,6 @@ const fetchTokensFromCookie = async (rawCookie) => {
     };
   }
 
-  // Fallback to POST /api/v1/authorization
   const postRes = await axios({
     url: "https://auth.riotgames.com/api/v1/authorization",
     method: "POST",
@@ -135,7 +132,7 @@ const fetchTokensFromCookie = async (rawCookie) => {
     httpsAgent: agent,
   }).catch((err) => {
     throw new ValorantAPIError(
-      "Failed to authenticate using your `ssid` cookie. The cookie may be expired or invalid.",
+      "Failed to authenticate using your `ssid` cookie. The cookie may be expired or blocked by Cloudflare — please use the Redirect URL instead!",
       err.response?.data
     );
   });
@@ -143,7 +140,7 @@ const fetchTokensFromCookie = async (rawCookie) => {
   const uri = postRes.data?.response?.parameters?.uri;
   if (!uri) {
     throw new ValorantAPIError(
-      "Your `ssid` cookie is expired or invalid. Please log in again using the Redirect URL!"
+      "Your `ssid` cookie is expired or invalid. Please log in using the Redirect URL!"
     );
   }
 
@@ -199,9 +196,7 @@ const getIngameUsername = async (accessToken, region, puuid, headers) => {
     if (res.data?.acct?.game_name && res.data?.acct?.tag_line) {
       return `${res.data.acct.game_name}#${res.data.acct.tag_line}`;
     }
-  } catch (_) {
-    // Fallback to name-service below
-  }
+  } catch (_) {}
 
   try {
     const nameRes = await axios({
@@ -223,16 +218,16 @@ const getIngameUsername = async (accessToken, region, puuid, headers) => {
 
 /**
  * Authenticate a user using either a Riot Redirect URL (containing #access_token=...)
- * or an `ssid` cookie string.
+ * or an `ssid` cookie string, and persist to SQLite.
  *
  * @param {string} id - Discord user ID
  * @param {string} input - Redirect URL or ssid cookie string
  * @return {Promise<object>} User data with headers, puuid, region, and username
  */
 const loginWithUrlOrCookie = async (id, input) => {
-  const user = getUser(id) || {};
+  const existingUser = getUser(id) || {};
   let tokens;
-  let ssidCookie = user.ssidCookie || null;
+  let ssidCookie = existingUser.ssidCookie || null;
 
   const trimmed = input.trim();
   if (trimmed.includes("access_token=")) {
@@ -266,10 +261,10 @@ const loginWithUrlOrCookie = async (id, input) => {
       const pasTokenResponse = await fetchPas(tokens.accessToken, tokens.idToken);
       region = pasTokenResponse.data?.affinities?.live || "ap";
     } catch (_) {
-      region = user.region || "ap";
+      region = existingUser.region || "ap";
     }
-  } else if (user.region) {
-    region = user.region;
+  } else if (existingUser.region) {
+    region = existingUser.region;
   }
 
   const versionResponse = await fetchValorantVersion();
@@ -278,16 +273,13 @@ const loginWithUrlOrCookie = async (id, input) => {
   const headers = makeHeaders(tokens.accessToken, tokens.entitlementsToken, clientVersion);
   const username = await getIngameUsername(tokens.accessToken, region, puuid, headers);
 
-  user.headers = { ...headers };
-  user.puuid = puuid;
-  user.region = region;
-  user.username = username;
-  if (ssidCookie) {
-    user.ssidCookie = ssidCookie;
-  }
-
-  users[id] = user;
-  saveUserData();
+  saveUser(id, {
+    headers,
+    puuid,
+    region,
+    username,
+    ssidCookie,
+  });
 
   return {
     ...headers,
@@ -312,42 +304,7 @@ const reauthorizeUser = async (id) => {
   }
 };
 
-// Keep backwards compatibility alias
 const getValorantUser = loginWithUrlOrCookie;
-
-// * Database to store user's headers, puuid, region, username.
-let users;
-
-const loadUserData = () => {
-  if (!users) {
-    try {
-      users = JSON.parse(
-        fs.readFileSync(path.resolve(__dirname, "../Valorant/Assets/Data/users.json"), "utf-8")
-      );
-      saveUserData();
-    } catch (err) {
-      users = {};
-    }
-  }
-};
-
-const saveUserData = () => {
-  fs.writeFileSync(
-    path.resolve(__dirname, "../Valorant/Assets/Data/users.json"),
-    JSON.stringify(users, null, 4)
-  );
-};
-
-const getUser = (id) => {
-  loadUserData();
-  return users[id];
-};
-
-const deleteUser = (id) => {
-  loadUserData();
-  delete users[id];
-  saveUserData();
-};
 
 module.exports = {
   RIOT_AUTH_URL,
@@ -356,8 +313,7 @@ module.exports = {
   reauthorizeUser,
   getValorantUser,
   getUser,
+  saveUser,
   deleteUser,
-  loadUserData,
-  saveUserData,
   makeHeaders,
 };

@@ -1,0 +1,12 @@
+services:
+  val-13t:
+    build: .
+    container_name: val-13t
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Jakarta
+    volumes:
+      - ./data:/app/data
+      - ./src/assets/json/config.json:/app/src/assets/json/config.json:ro

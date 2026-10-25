@@ -1,6 +1,6 @@
-const Event = require('../../Structures/Event');
+const Event = require('../../structures/Event');
 const { EmbedBuilder } = require('discord.js');
-const { links } = require('../../Assets/JSON/config.json');
+const { links } = require('../../assets/json/config.json');
 
 module.exports = class extends Event {
 	async run(message) {

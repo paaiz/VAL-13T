@@ -90,7 +90,7 @@ module.exports = class Util {
 	}
 
 	async loadPrefixCommands() {
-		return glob(`${this.directory}PrefixCommands/**/*.js`).then((commands) => {
+		return glob(`${this.directory}prefixcommands/**/*.js`).then((commands) => {
 			for (const commandFile of commands) {
 				delete require.cache[commandFile];
 				const { name } = path.parse(commandFile);
@@ -109,7 +109,7 @@ module.exports = class Util {
 	}
 
 	async loadSlashCommands() {
-		return glob(`${this.directory}Commands/**/*.js`).then((slashCmd) => {
+		return glob(`${this.directory}commands/**/*.js`).then((slashCmd) => {
 			for (const slashFile of slashCmd) {
 				delete require.cache[slashFile];
 				const { name } = path.parse(slashFile);
@@ -123,7 +123,7 @@ module.exports = class Util {
 	}
 
 	async loadEvents() {
-		return glob(`${this.directory}Events/**/*.js`).then((events) => {
+		return glob(`${this.directory}events/**/*.js`).then((events) => {
 			for (const eventFile of events) {
 				delete require.cache[eventFile];
 				const { name } = path.parse(eventFile);

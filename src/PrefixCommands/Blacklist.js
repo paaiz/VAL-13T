@@ -1,7 +1,6 @@
-const Command = require('../Structures/PrefixCommand');
+const Command = require('../structures/PrefixCommand');
 const { EmbedBuilder } = require('discord.js');
-
-const userSchema = require('../Structures/Database/Schema/UserSchema');
+const { isUserBlacklisted, setUserBlacklist } = require('../structures/database/Database');
 
 module.exports = class extends Command {
   constructor(...args) {
@@ -47,11 +46,7 @@ module.exports = class extends Command {
           });
         }
 
-        const blacklistedUserData = await userSchema.findOne({
-          userId: getBlacklistedUser.id,
-        });
-
-        if (!blacklistedUserData?.isBlacklist) {
+        if (!isUserBlacklisted(getBlacklistedUser.id)) {
           return message.reply({
             embeds: [
               embed
@@ -64,10 +59,7 @@ module.exports = class extends Command {
           });
         }
 
-        await userSchema.findOneAndUpdate(
-          { userId: getBlacklistedUser.id },
-          { isBlacklist: false }
-        );
+        setUserBlacklist(getBlacklistedUser.id, false);
         return message.reply({
           embeds: [
             embed
@@ -112,21 +104,7 @@ module.exports = class extends Command {
           });
         }
 
-        const userData = await userSchema.findOne({
-          userId: getUser.id,
-        });
-
-        if (!userData) {
-          await userSchema.create({
-            userId: getUser.id,
-            isBlacklist: true,
-          });
-        } else {
-          await userSchema.findOneAndUpdate(
-            { userId: getUser.id },
-            { isBlacklist: true }
-          );
-        }
+        setUserBlacklist(getUser.id, true);
 
         return message.reply({
           embeds: [

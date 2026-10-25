@@ -1,4 +1,4 @@
-const Command = require('../../Structures/Command');
+const Command = require('../../structures/Command');
 const {
 	EmbedBuilder,
 	ActionRowBuilder,
@@ -6,7 +6,7 @@ const {
 	ComponentType,
 	MessageFlags,
 } = require('discord.js');
-const { links } = require('../../Assets/JSON/config.json');
+const { links } = require('../../assets/json/config.json');
 
 module.exports = class extends Command {
 	constructor(...args) {

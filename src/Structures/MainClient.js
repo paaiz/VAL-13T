@@ -9,7 +9,7 @@ const chalk = require("chalk");
 
 const Util = require("./Util");
 const Logger = require("./Logger");
-const ConnectDB = require("./Database/Connection");
+const Database = require("./database/Database");
 
 require("dotenv").config();
 
@@ -53,10 +53,10 @@ module.exports = class MainClient extends Client {
     // Function & System
     this.utils = new Util(this);
     this.logger = new Logger();
-    this.database = new ConnectDB(this);
+    this.database = Database;
 
     // Config file
-    this.config = require("../Assets/JSON/config.json");
+    this.config = require("../assets/json/config.json");
   }
 
   validate(options) {
@@ -75,7 +75,7 @@ module.exports = class MainClient extends Client {
     }
 
     if (!options.client.prefix) {
-      throw new Error(chalk.red("Discord Bot prefix are required!"));
+      throw new Error(chalk.red("Discord Bot prefix is required!"));
     }
 
     if (typeof options.client.prefix !== "string") {
@@ -90,13 +90,8 @@ module.exports = class MainClient extends Client {
     ).freeze();
   }
 
-  async connectToDB() {
-    if (process.env.MONGODB_URI) {
-      await this.database.init();
-    }
-  }
-
   async start(token = this.token) {
+    this.logger.ready(`SQLite Database Ready (${this.database.DB_PATH})`);
     await this.utils.loadEvents();
     await this.utils.loadPrefixCommands();
 

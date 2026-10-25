@@ -3,7 +3,7 @@ const { AttachmentBuilder } = require("discord.js");
 const path = require("path");
 
 GlobalFonts.registerFromPath(
-  path.resolve(__dirname, "../Assets/Fonts/Latinotype-EstandarRd-Regular.otf"),
+  path.resolve(__dirname, "../../../assets/fonts/Latinotype-EstandarRd-Regular.otf"),
   "Latino Type Standard"
 );
 
@@ -15,7 +15,7 @@ const genetareNightMarketImage = async (skins) => {
   ctx.fillStyle = "#FFFFFF";
 
   const background = await loadImage(
-    path.resolve(__dirname, "../Assets/Images/nightmarket_background.png")
+    path.resolve(__dirname, "../../../assets/images/nightmarket_background.png")
   );
   ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 

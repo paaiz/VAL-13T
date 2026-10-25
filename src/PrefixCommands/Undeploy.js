@@ -1,4 +1,4 @@
-const Command = require('../Structures/PrefixCommand');
+const Command = require('../structures/PrefixCommand');
 const { Message } = require('discord.js');
 
 module.exports = class extends Command {
@@ -31,4 +31,4 @@ module.exports = class extends Command {
 			});
 		}
 	}
-};
+};

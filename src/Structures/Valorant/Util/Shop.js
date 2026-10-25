@@ -2,13 +2,15 @@ const axios = require("axios").default;
 const fs = require("fs");
 const path = require("path");
 
-const skinTier = require("../Assets/Data/tier.json");
-const { getUser, reauthorizeUser, saveUserData } = require("../Valorant");
-const { loadWeaponSkins } = require("./Cache");
+const skinTier = require("../../../assets/json/tier.json");
+const { getUser, saveUser, reauthorizeUser } = require("../Valorant");
+const { loadWeaponSkins, getCachedSkins } = require("./Cache");
 
 const VP_UUID = "85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741";
 const RP_UUID = "e59aa87c-4cbf-517a-5983-6e81511be9b7";
 const KC_UUID = "85ca954a-41f2-ce94-9b45-8ca3dd39a00d";
+
+const SKIN_TYPE_ID = "e7c63390-eda7-46e0-bb7a-a6abdacd2433";
 
 const ITEM_TYPES = {
   "3f296c07-64c3-494c-923b-fe692a4fa1bd": "Player Card",
@@ -29,11 +31,11 @@ class ValorantShopError extends Error {
 /**
  * Ensures the user has a valid, up-to-date X-Riot-ClientVersion header.
  */
-const ensureClientHeaders = async (user) => {
+const ensureClientHeaders = async (id, user) => {
   if (!user.headers["X-Riot-ClientVersion"]) {
     const versionRes = await axios.get("https://valorant-api.com/v1/version");
     user.headers["X-Riot-ClientVersion"] = versionRes.data.data.riotClientVersion;
-    saveUserData();
+    saveUser(id, user);
   }
   return {
     "X-Riot-ClientPlatform": user.headers["X-Riot-ClientPlatform"],
@@ -56,7 +58,7 @@ const requestWithReauth = async (id, requestFn) => {
   }
 
   try {
-    const headers = await ensureClientHeaders(user);
+    const headers = await ensureClientHeaders(id, user);
     return await requestFn(user, headers);
   } catch (err) {
     const status = err.response?.status;
@@ -69,7 +71,7 @@ const requestWithReauth = async (id, requestFn) => {
     if (errorCode === "BAD_CLAIMS" || status === 400 || status === 401) {
       const refreshedUser = await reauthorizeUser(id);
       if (refreshedUser) {
-        const newHeaders = await ensureClientHeaders(refreshedUser);
+        const newHeaders = await ensureClientHeaders(id, refreshedUser);
         return await requestFn(refreshedUser, newHeaders);
       }
       throw new ValorantShopError(
@@ -123,7 +125,9 @@ const getDailyStore = async (id) => {
   const convertedStoreDuration = Math.floor(Date.now() / 1000) + storeDuration;
 
   let skinsData = readSkinsFile();
-  const missingSkin = skinIds.some((uuid) => !skinsData[uuid]);
+  const missingSkin = skinIds.some(
+    (uuid) => !skinsData[uuid] || skinsData[uuid].video === undefined
+  );
   if (missingSkin) {
     const refreshed = await loadWeaponSkins();
     if (refreshed) skinsData = refreshed;
@@ -140,6 +144,8 @@ const getDailyStore = async (id) => {
       name: "Unknown Skin",
       icon: "https://media.valorant-api.com/weaponskins/4d786f93-4227-f3b9-71c3-76821d33737c/displayicon.png",
       tier: "12683d76-48d7-84a3-4e09-6985794f0445",
+      video: null,
+      videos: [],
     };
 
     skins[`skin_${number++}`] = {
@@ -147,6 +153,8 @@ const getDailyStore = async (id) => {
       name: skinInfo.name,
       image: skinInfo.icon,
       tierImage: getTierIMG(skinInfo.tier),
+      video: skinInfo.video || null,
+      videos: skinInfo.videos || [],
       price: directPrice !== undefined ? Promise.resolve(directPrice) : getWeaponPrice(id, skinUuid),
     };
   }
@@ -177,16 +185,72 @@ const getFeaturedBundles = async (id) => {
     throw new ValorantShopError("No active Featured Bundles were found right now!");
   }
 
+  let skinsData = readSkinsFile();
+
   const bundles = [];
   for (const b of rawBundles) {
     const bundleUuid = b.DataAssetID;
     const expiresAt = Math.floor(Date.now() / 1000) + (b.DurationRemainingInSeconds || 0);
+    const rawItems = Array.isArray(b.Items) ? b.Items : [];
+
+    const basePrice =
+      b.TotalBaseCost?.[VP_UUID] ??
+      rawItems.reduce((sum, item) => sum + (item.BasePrice || 0), 0);
+
     const price =
       b.TotalDiscountedCost?.[VP_UUID] ??
       b.TotalBaseCost?.[VP_UUID] ??
-      (Array.isArray(b.Items)
-        ? b.Items.reduce((sum, item) => sum + (item.DiscountedPrice || item.BasePrice || 0), 0)
-        : 0);
+      rawItems.reduce((sum, item) => sum + (item.DiscountedPrice ?? item.BasePrice ?? 0), 0);
+
+    const missingSkin = rawItems.some(
+      (entry) =>
+        entry.Item?.ItemTypeID === SKIN_TYPE_ID &&
+        (!skinsData[entry.Item?.ItemID] || skinsData[entry.Item?.ItemID].video === undefined)
+    );
+    if (missingSkin) {
+      const refreshed = await loadWeaponSkins();
+      if (refreshed) skinsData = refreshed;
+    }
+
+    const resolvedItems = await Promise.all(
+      rawItems.map(async (entry) => {
+        const itemTypeId = entry.Item?.ItemTypeID;
+        const itemId = entry.Item?.ItemID;
+        const itemBasePrice = entry.BasePrice ?? 0;
+        const itemDiscountedPrice = entry.DiscountedPrice ?? itemBasePrice;
+
+        if (itemTypeId === SKIN_TYPE_ID) {
+          const skinInfo = skinsData[itemId];
+          const skinIcon =
+            skinInfo?.icon ||
+            "https://media.valorant-api.com/weaponskins/4d786f93-4227-f3b9-71c3-76821d33737c/displayicon.png";
+          return {
+            isWeapon: true,
+            type: "Weapon Skin",
+            name: skinInfo?.name || "Weapon Skin",
+            icon: skinIcon,
+            previewUrl: skinIcon,
+            bannerUrl: null,
+            video: skinInfo?.video || null,
+            videos: skinInfo?.videos || [],
+            basePrice: itemBasePrice,
+            discountedPrice: itemDiscountedPrice,
+          };
+        }
+
+        const detail = await resolveAccessoryItem(itemTypeId, itemId);
+        return {
+          isWeapon: false,
+          type: detail.type,
+          name: detail.name,
+          icon: detail.icon,
+          previewUrl: detail.previewUrl,
+          bannerUrl: detail.bannerUrl,
+          basePrice: itemBasePrice,
+          discountedPrice: itemDiscountedPrice,
+        };
+      })
+    );
 
     let name = "Featured Bundle";
     let image = null;
@@ -203,7 +267,9 @@ const getFeaturedBundles = async (id) => {
       name,
       image,
       price,
+      basePrice,
       expiresAt,
+      items: resolvedItems,
     });
   }
 
@@ -222,7 +288,9 @@ const resolveAccessoryItem = async (itemTypeId, itemId) => {
       return {
         type: typeName,
         name: res.data.data.displayName,
-        icon: res.data.data.wideArt || res.data.data.displayIcon,
+        icon: res.data.data.displayIcon || res.data.data.smallArt,
+        previewUrl: res.data.data.largeArt || res.data.data.displayIcon,
+        bannerUrl: res.data.data.wideArt || null,
       };
     }
     if (typeName === "Gun Buddy") {
@@ -231,19 +299,25 @@ const resolveAccessoryItem = async (itemTypeId, itemId) => {
         type: typeName,
         name: res.data.data.displayName,
         icon: res.data.data.displayIcon,
+        previewUrl: res.data.data.displayIcon,
+        bannerUrl: null,
       };
     }
     if (typeName === "Spray") {
       const res = await axios
         .get(`https://valorant-api.com/v1/sprays/${itemId}`)
         .catch(() => axios.get(`https://valorant-api.com/v1/sprays/levels/${itemId}`));
+      const fullPreview =
+        res.data.data.animationGif ||
+        res.data.data.fullTransparentIcon ||
+        res.data.data.animationPng ||
+        res.data.data.displayIcon;
       return {
         type: typeName,
         name: res.data.data.displayName,
-        icon:
-          res.data.data.fullTransparentIcon ||
-          res.data.data.animationPng ||
-          res.data.data.displayIcon,
+        icon: res.data.data.displayIcon || fullPreview,
+        previewUrl: fullPreview,
+        bannerUrl: null,
       };
     }
     if (typeName === "Player Title") {
@@ -252,6 +326,8 @@ const resolveAccessoryItem = async (itemTypeId, itemId) => {
         type: typeName,
         name: res.data.data.titleText || res.data.data.displayName,
         icon: null,
+        previewUrl: null,
+        bannerUrl: null,
       };
     }
   } catch (_) {}
@@ -260,6 +336,8 @@ const resolveAccessoryItem = async (itemTypeId, itemId) => {
     type: typeName,
     name: `${typeName} (${itemId.slice(0, 8)})`,
     icon: null,
+    previewUrl: null,
+    bannerUrl: null,
   };
 };
 
@@ -373,12 +451,7 @@ const getWeaponPrice = async (id, skinId) => {
 };
 
 const readSkinsFile = () => {
-  try {
-    const data = fs.readFileSync(path.resolve(__dirname, "../Assets/Data/skins.json"), "utf-8");
-    return JSON.parse(data);
-  } catch (_) {
-    return {};
-  }
+  return getCachedSkins();
 };
 
 const getTierIMG = (tierId) => {

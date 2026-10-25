@@ -1,4 +1,4 @@
-const Event = require("../../Structures/Event");
+const Event = require("../../structures/Event");
 const {
   ApplicationCommandOptionType,
   ActionRowBuilder,
@@ -8,7 +8,9 @@ const {
   EmbedBuilder,
   MessageFlags,
 } = require("discord.js");
-const { loginWithUrlOrCookie } = require("../../Structures/Valorant/Valorant");
+const { loginWithUrlOrCookie } = require("../../structures/valorant/Valorant");
+const { isUserBlacklisted } = require("../../structures/database/Database");
+const { links } = require("../../assets/json/config.json");
 
 module.exports = class extends Event {
   async run(interaction) {
@@ -39,6 +41,13 @@ module.exports = class extends Event {
           this.client.logger.cmd(`${sender.tag} [${sender.id}] Ran: /${command.name}`);
         } catch (err) {
           console.log(err);
+        }
+
+        if (isUserBlacklisted(interaction.user.id)) {
+          return interaction.reply({
+            content: `Sorry, you are currently blacklisted from using **${this.client.user.username}**!\nIf you think this is a mistake, please join our [Support Server](${links.supportInvite}).`,
+            flags: MessageFlags.Ephemeral,
+          });
         }
 
         if (command.guildOnly && !interaction.guild) {

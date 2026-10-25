@@ -1,4 +1,4 @@
-const Command = require('../../Structures/Command');
+const Command = require('../../structures/Command');
 const {
 	EmbedBuilder,
 	ActionRowBuilder,
@@ -8,9 +8,9 @@ const {
 	MessageFlags,
 } = require('discord.js');
 
-const { genetareNightMarketImage } = require('../../Structures/Valorant/Util/NightmarketDesign');
-const { getUser } = require('../../Structures/Valorant/Valorant');
-const { getNightmarket } = require('../../Structures/Valorant/Util/Shop');
+const { genetareNightMarketImage } = require('../../structures/valorant/util/NightmarketDesign');
+const { getUser } = require('../../structures/valorant/Valorant');
+const { getNightmarket } = require('../../structures/valorant/util/Shop');
 
 module.exports = class extends Command {
 	constructor(...args) {

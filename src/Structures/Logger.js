@@ -1,5 +1,4 @@
 const chalk = require('chalk');
-const moment = require('moment');
 
 module.exports = class Logger {
 	get getTime() {
@@ -21,4 +20,4 @@ module.exports = class Logger {
 	err(content) {
 		return console.log(chalk.red(`[ERR] ${this.getTime} : ${content}`));
 	}
-};
+};
