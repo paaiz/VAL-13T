@@ -74,7 +74,7 @@ module.exports = class extends Command {
             name: "Guide",
             value: [
               ">>> **1.** Click **Open Riot Games Login** (or **Switch / Relogin Account** to add another account) and sign in through your browser.",
-              "**2.** Once redirected to a 404/blank page (`playvalorant.com/opt_in#access_token=...`), **copy the entire URL** from your address bar.",
+              "**2.** Once redirected to a **localhost/error page** that refused to connect (`http://localhost/redirect?iss=...`), **copy the entire URL** from your address bar.",
               "**3.** Click **Paste Redirect URL** below and paste the copied URL!",
             ].join("\n"),
           },
