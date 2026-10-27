@@ -26,6 +26,7 @@ module.exports = class extends Command {
 				})
 				.join(', ');
 			const DJSversion = require('discord.js').version;
+			const uptimeTimestamp = Math.floor((Date.now() - (this.client.uptime || (process.uptime() * 1000))) / 1000);
 
 			const embed = new EmbedBuilder()
 				.setTitle(`${this.client.user.username} Info`)
@@ -35,9 +36,10 @@ module.exports = class extends Command {
 				.addFields(
 					{ name: '🌐 Servers', value: `${getGuildCount}`, inline: true },
 					{ name: '👥 Users', value: `${getUsers}`, inline: true },
+					{ name: '🏓 Ping', value: `${Math.abs(Date.now() - interaction.createdTimestamp)}ms`, inline: true },
+					{ name: '⏱️ Uptime', value: `<t:${uptimeTimestamp}:R>`, inline: true },
 					{ name: '📦 Discord.js', value: `v${DJSversion}`, inline: true },
 					{ name: '👩‍💻 Node.js', value: `${process.version}`, inline: true },
-					{ name: '🏓 Ping', value: `${Math.abs(Date.now() - interaction.createdTimestamp)}ms`, inline: true },
 					{ name: '👤 Owner(s)', value: `${getOwners || 'Paiz'}`, inline: true },
 				);
 
