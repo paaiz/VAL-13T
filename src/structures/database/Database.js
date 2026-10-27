@@ -11,6 +11,7 @@ const DB_PATH = path.join(DATA_DIR, "val13t.db");
 const db = new DatabaseSync(DB_PATH);
 
 const MAX_ACCOUNTS_PER_USER = 5;
+const MAX_WISHLIST_PER_ACCOUNT = 25;
 
 // Enable WAL mode for high concurrency and performance
 db.exec("PRAGMA journal_mode = WAL;");
@@ -35,15 +36,28 @@ db.exec(`
     headers TEXT,
     ssid_cookie TEXT,
     refresh_token TEXT,
+    daily_dm INTEGER DEFAULT 0,
     is_active INTEGER DEFAULT 1,
     updated_at INTEGER,
     PRIMARY KEY (user_id, puuid)
   );
+
+  CREATE TABLE IF NOT EXISTS wishlists (
+    user_id TEXT NOT NULL,
+    puuid TEXT NOT NULL,
+    skin_uuid TEXT NOT NULL,
+    skin_name TEXT NOT NULL,
+    created_at INTEGER,
+    PRIMARY KEY (user_id, puuid, skin_uuid)
+  );
 `);
 
-// Ensure existing databases have the `refresh_token` column on `accounts`
+// Ensure existing databases have the `refresh_token` and `daily_dm` columns on `accounts`
 try {
   db.exec("ALTER TABLE accounts ADD COLUMN refresh_token TEXT;");
+} catch (_) {}
+try {
+  db.exec("ALTER TABLE accounts ADD COLUMN daily_dm INTEGER DEFAULT 0;");
 } catch (_) {}
 
 const stmtGetUser = db.prepare("SELECT * FROM users WHERE user_id = ?");
@@ -135,12 +149,14 @@ const formatAccountRow = (row) => {
   } catch (_) {}
 
   return {
+    userId: row.user_id,
     puuid: row.puuid,
     username: row.username,
     region: row.region,
     headers: parsedHeaders,
     ssidCookie: row.ssid_cookie || null,
     refreshToken: row.refresh_token || null,
+    dailyDm: row.daily_dm === 1,
     isActive: row.is_active === 1,
     updatedAt: row.updated_at,
   };
@@ -244,14 +260,78 @@ const deleteUser = (userId, puuid = null) => {
 
   if (puuid) {
     stmtDeleteAccountByPuuid.run(uid, String(puuid));
+    db.prepare("DELETE FROM wishlists WHERE user_id = ? AND puuid = ?").run(uid, String(puuid));
     const remaining = getUserAccounts(uid);
     if (remaining.length > 0 && !remaining.some((acc) => acc.isActive)) {
       stmtActivateAccount.run(Date.now(), uid, remaining[0].puuid);
     }
   } else {
     stmtDeleteAllAccounts.run(uid);
+    db.prepare("DELETE FROM wishlists WHERE user_id = ?").run(uid);
     stmtClearLegacySession.run(Date.now(), uid);
   }
+};
+
+// ---- Wishlist & Daily Store Auto-DM Helpers ----
+const stmtGetWishlist = db.prepare(`
+  SELECT skin_uuid AS uuid, skin_name AS name, created_at AS createdAt
+  FROM wishlists
+  WHERE user_id = ? AND puuid = ?
+  ORDER BY created_at ASC
+`);
+const stmtAddWishlist = db.prepare(`
+  INSERT INTO wishlists (user_id, puuid, skin_uuid, skin_name, created_at)
+  VALUES (?, ?, ?, ?, ?)
+  ON CONFLICT(user_id, puuid, skin_uuid) DO UPDATE SET
+    skin_name = excluded.skin_name
+`);
+const stmtRemoveWishlist = db.prepare(`
+  DELETE FROM wishlists WHERE user_id = ? AND puuid = ? AND skin_uuid = ?
+`);
+const stmtClearWishlist = db.prepare(`
+  DELETE FROM wishlists WHERE user_id = ? AND puuid = ?
+`);
+const stmtSetDailyDm = db.prepare(`
+  UPDATE accounts SET daily_dm = ?, updated_at = ? WHERE user_id = ? AND puuid = ?
+`);
+const stmtGetAllAutoCheckAccounts = db.prepare(`
+  SELECT DISTINCT a.*
+  FROM accounts a
+  LEFT JOIN wishlists w ON a.user_id = w.user_id AND a.puuid = w.puuid
+  WHERE a.daily_dm = 1 OR w.skin_uuid IS NOT NULL
+`);
+
+const getWishlist = (userId, puuid) => {
+  return stmtGetWishlist.all(String(userId), String(puuid));
+};
+
+const addWishlistItem = (userId, puuid, skinUuid, skinName) => {
+  stmtAddWishlist.run(
+    String(userId),
+    String(puuid),
+    String(skinUuid),
+    String(skinName),
+    Date.now()
+  );
+};
+
+const removeWishlistItem = (userId, puuid, skinUuid) => {
+  const res = stmtRemoveWishlist.run(String(userId), String(puuid), String(skinUuid));
+  return res.changes > 0;
+};
+
+const clearWishlist = (userId, puuid) => {
+  stmtClearWishlist.run(String(userId), String(puuid));
+};
+
+const setDailyStoreDm = (userId, puuid, enabled) => {
+  stmtSetDailyDm.run(enabled ? 1 : 0, Date.now(), String(userId), String(puuid));
+  return getAccountByPuuid(userId, puuid);
+};
+
+const getAllAutoCheckAccounts = () => {
+  const rows = stmtGetAllAutoCheckAccounts.all();
+  return rows.map(formatAccountRow).filter(Boolean);
 };
 
 /**
@@ -273,6 +353,7 @@ module.exports = {
   db,
   DB_PATH,
   MAX_ACCOUNTS_PER_USER,
+  MAX_WISHLIST_PER_ACCOUNT,
   getUser,
   getAccountByPuuid,
   getUserAccounts,
@@ -280,6 +361,12 @@ module.exports = {
   updateAccountSession,
   setActiveAccount,
   deleteUser,
+  getWishlist,
+  addWishlistItem,
+  removeWishlistItem,
+  clearWishlist,
+  setDailyStoreDm,
+  getAllAutoCheckAccounts,
   isUserBlacklisted,
   setUserBlacklist,
 };
