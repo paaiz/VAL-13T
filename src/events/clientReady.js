@@ -63,8 +63,11 @@ module.exports = class extends Event {
     });
 
     // * Deploying slash commands in global
+    // Development bot deploys everything (including devMode commands) for testing;
+    // the production bot only deploys commands that are ready (devMode === false).
+    const isDevelopment = this.client.config.client?.development === true;
     const getSlashData = this.client.commands
-      .filter((x) => x.devMode === false)
+      .filter((x) => isDevelopment || !x.devMode)
       .map((cmd) => ({
         name: cmd.name,
         description: cmd.description,
@@ -73,7 +76,9 @@ module.exports = class extends Event {
 
     try {
       await this.client.application.commands.set(getSlashData);
-      this.client.logger.ready(`Slash Commands Deployed Globally!`);
+      this.client.logger.ready(
+        `Slash Commands Deployed Globally! (${isDevelopment ? "DEVELOPMENT" : "PRODUCTION"}: ${getSlashData.length} commands)`
+      );
     } catch (err) {
       console.log(err);
     }
