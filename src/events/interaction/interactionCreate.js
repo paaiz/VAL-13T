@@ -14,12 +14,32 @@ const { links } = require("../../assets/json/config.json");
 
 module.exports = class extends Event {
   async run(interaction) {
+    if (interaction.isAutocomplete()) {
+      const command = this.client.commands.get(interaction.commandName);
+      if (!command || typeof command.autocomplete !== "function") return;
+      if (command.devMode && this.client.config.client?.development !== true) return;
+      try {
+        await command.autocomplete(interaction);
+      } catch (err) {
+        // "Unknown interaction" is common when the user types fast — ignore silently
+        if (err?.code !== 10062) console.log(err);
+      }
+      return;
+    }
+
     if (interaction.isChatInputCommand()) {
       try {
         const command = this.client.commands.get(interaction.commandName);
 
         if (!command) {
           return interaction.reply({ content: "Unknown command", flags: MessageFlags.Ephemeral });
+        }
+
+        if (command.devMode && this.client.config.client?.development !== true) {
+          return interaction.reply({
+            content: "Sorry, this command is currently in development and not enabled in production!",
+            flags: MessageFlags.Ephemeral,
+          });
         }
 
         const args = [];

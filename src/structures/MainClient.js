@@ -68,7 +68,7 @@ module.exports = class MainClient extends Client {
       throw new Error(chalk.red("Discord Bot token is required!"));
     }
 
-    if (options.client.development) {
+    if (options.client.development === true) {
       this.token = process.env.DEVELOPMENT_TOKEN || process.env.BOT_TOKEN;
     } else {
       this.token = process.env.BOT_TOKEN || process.env.DEVELOPMENT_TOKEN;
