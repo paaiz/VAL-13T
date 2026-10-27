@@ -5,11 +5,11 @@ const path = require("path");
 const skinTier = require("../../../assets/json/tier.json");
 const {
   getUser,
-  saveUser,
   reauthorizeUser,
   checkAccountStatus,
   getRiotVersionData,
 } = require("../Valorant");
+const { getAccountByPuuid, updateAccountSession } = require("../../database/Database");
 const { loadWeaponSkins, getCachedSkins } = require("./Cache");
 
 const VP_UUID = "85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741";
@@ -44,7 +44,7 @@ const ensureClientHeaders = async (id, user) => {
     user.headers["X-Riot-ClientVersion"] !== versionData.riotClientVersion
   ) {
     user.headers["X-Riot-ClientVersion"] = versionData.riotClientVersion;
-    saveUser(id, user);
+    updateAccountSession(id, user.puuid, { headers: user.headers });
   } else if (!user.headers["X-Riot-ClientVersion"]) {
     user.headers["X-Riot-ClientVersion"] = "release-10.00-shipping-0-0000000";
   }
@@ -62,15 +62,15 @@ const ensureClientHeaders = async (id, user) => {
  * Helper to execute an authenticated Riot PD request with proactive 5-min buffer refresh
  * and automatic retry on 400/401/BAD_CLAIMS.
  */
-const requestWithReauth = async (id, requestFn) => {
-  let user = getUser(id);
+const requestWithReauth = async (id, requestFn, puuid = null) => {
+  let user = puuid ? getAccountByPuuid(id, puuid) : getUser(id);
   if (!user) {
     throw new ValorantShopError("You are not logged in! Please run `/login` first.");
   }
 
   const status = checkAccountStatus(user);
   if (status.needsProactiveRefresh && status.canAutoRefresh) {
-    const refreshed = await reauthorizeUser(id);
+    const refreshed = await reauthorizeUser(id, { puuid: user.puuid });
     if (refreshed) {
       user = refreshed;
     }
@@ -90,7 +90,7 @@ const requestWithReauth = async (id, requestFn) => {
     }
 
     if (errorCode === "BAD_CLAIMS" || httpStatus === 400 || httpStatus === 401) {
-      const refreshedUser = await reauthorizeUser(id, { force: true });
+      const refreshedUser = await reauthorizeUser(id, { force: true, puuid: user.puuid });
       if (refreshedUser) {
         const newHeaders = await ensureClientHeaders(id, refreshedUser);
         return await requestFn(refreshedUser, newHeaders);
@@ -127,13 +127,16 @@ const getBalances = async (id) => {
 /**
  * Retrieves the daily store for a user using Storefront v3 (POST).
  */
-const getDailyStore = async (id) => {
-  const response = await requestWithReauth(id, (user, headers) =>
-    axios.post(
-      `https://pd.${user.region}.a.pvp.net/store/v3/storefront/${user.puuid}`,
-      {},
-      { headers },
-    ),
+const getDailyStore = async (id, puuid = null) => {
+  const response = await requestWithReauth(
+    id,
+    (user, headers) =>
+      axios.post(
+        `https://pd.${user.region}.a.pvp.net/store/v3/storefront/${user.puuid}`,
+        {},
+        { headers },
+      ),
+    puuid,
   );
 
   recordStorePrices(response.data);

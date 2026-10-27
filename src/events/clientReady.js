@@ -2,6 +2,7 @@ const { ActivityType } = require("discord.js");
 const cron = require("node-cron");
 const Event = require("../structures/Event");
 const { loadWeaponSkins } = require("../structures/valorant/util/Cache");
+const { runDailyStoreNotifications } = require("../structures/valorant/util/Notifier");
 
 module.exports = class extends Event {
   constructor(...args) {
@@ -18,11 +19,12 @@ module.exports = class extends Event {
     // Update latest weapon skins cache from valorant-api.com on startup
     await loadWeaponSkins();
 
-    // Auto-sync weapon skins daily at 07:00 WIB (Valorant store reset time)
+    // Auto-sync weapon skins & send Wishlist / Daily Store DMs daily at 07:00 WIB (Valorant store reset time)
     cron.schedule(
       "0 7 * * *",
       async () => {
         await loadWeaponSkins();
+        await runDailyStoreNotifications(this.client);
       },
       { timezone: "Asia/Jakarta" }
     );

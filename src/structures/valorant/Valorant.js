@@ -547,8 +547,8 @@ const activeRefreshes = new Map();
  * 2. Saves rotated `refresh_token` + `access_token` to SQLite BEFORE requesting entitlements
  * 3. Fetches entitlements & updates headers in SQLite
  */
-const reauthorizeUser = async (id, { force = false } = {}) => {
-  const initialUser = getUser(id);
+const reauthorizeUser = async (id, { force = false, puuid = null } = {}) => {
+  const initialUser = puuid ? getAccountByPuuid(id, puuid) : getUser(id);
   if (!initialUser) return null;
 
   const status = checkAccountStatus(initialUser);
