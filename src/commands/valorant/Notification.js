@@ -16,11 +16,11 @@ const VALORANT_EMOJI = "<:valorant_logo:965476928930852864>";
 module.exports = class extends Command {
   constructor(...args) {
     super(...args, {
-      description: "Manage your daily 07:00 WIB Valorant store & wishlist DM notifications!",
+      description: "Manage your daily 07:00 AM Valorant store & wishlist DM notifications!",
       category: "Valorant",
       categoryEmoji: VALORANT_EMOJI,
       guildOnly: true,
-      devMode: true,
+      devMode: false,
       userPerms: [],
       botPerms: [],
       options: [
