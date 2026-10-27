@@ -34,12 +34,7 @@ module.exports = class MainClient extends Client {
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
       ],
-      partials: [
-        Partials.User,
-        Partials.Channel,
-        Partials.GuildMember,
-        Partials.Message,
-      ],
+      partials: [Partials.User, Partials.Channel, Partials.GuildMember, Partials.Message],
     });
 
     this.validate(options);
@@ -85,9 +80,7 @@ module.exports = class MainClient extends Client {
     if (!options.defaultPerms) {
       throw new Error("Default permissions are required for the client!");
     }
-    this.defaultPerms = new PermissionsBitField(
-      normalizePerms(options.defaultPerms)
-    ).freeze();
+    this.defaultPerms = new PermissionsBitField(normalizePerms(options.defaultPerms)).freeze();
   }
 
   async start(token = this.token) {
