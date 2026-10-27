@@ -10,11 +10,14 @@ module.exports = class extends Command {
 	}
 
 	async run(message) {
-		const getSlashData = this.client.commands.map((cmd) => ({
-			name: cmd.name,
-			description: cmd.description,
-			options: cmd.options,
-		}));
+		const isDevelopment = this.client.config.client?.development === true;
+		const getSlashData = this.client.commands
+			.filter((x) => isDevelopment || !x.devMode)
+			.map((cmd) => ({
+				name: cmd.name,
+				description: cmd.description,
+				options: cmd.options,
+			}));
 
 		try {
 			const msg = await message.reply({ content: '<a:val_dc_load:957192309399760926> Deploying slash commands... Please wait!' });
