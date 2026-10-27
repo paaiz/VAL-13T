@@ -39,7 +39,10 @@ class ValorantShopError extends Error {
  */
 const ensureClientHeaders = async (id, user) => {
   const versionData = await getRiotVersionData();
-  if (versionData?.riotClientVersion && user.headers["X-Riot-ClientVersion"] !== versionData.riotClientVersion) {
+  if (
+    versionData?.riotClientVersion &&
+    user.headers["X-Riot-ClientVersion"] !== versionData.riotClientVersion
+  ) {
     user.headers["X-Riot-ClientVersion"] = versionData.riotClientVersion;
     saveUser(id, user);
   } else if (!user.headers["X-Riot-ClientVersion"]) {
@@ -62,12 +65,9 @@ const ensureClientHeaders = async (id, user) => {
 const requestWithReauth = async (id, requestFn) => {
   let user = getUser(id);
   if (!user) {
-    throw new ValorantShopError(
-      "You are not logged in! Please run `/login` first."
-    );
+    throw new ValorantShopError("You are not logged in! Please run `/login` first.");
   }
 
-  // Proactive refresh if token is expired or within 5-minute buffer (Ministral pattern)
   const status = checkAccountStatus(user);
   if (status.needsProactiveRefresh && status.canAutoRefresh) {
     const refreshed = await reauthorizeUser(id);
@@ -84,7 +84,9 @@ const requestWithReauth = async (id, requestFn) => {
     const errorCode = err.response?.data?.errorCode;
 
     if (httpStatus === 503) {
-      throw new ValorantShopError("Valorant services are currently unavailable. Please try again later!");
+      throw new ValorantShopError(
+        "Valorant services are currently unavailable. Please try again later!",
+      );
     }
 
     if (errorCode === "BAD_CLAIMS" || httpStatus === 400 || httpStatus === 401) {
@@ -93,14 +95,12 @@ const requestWithReauth = async (id, requestFn) => {
         const newHeaders = await ensureClientHeaders(id, refreshedUser);
         return await requestFn(refreshedUser, newHeaders);
       }
-      throw new ValorantShopError(
-        "Your login session has expired. Please run `/login` again!"
-      );
+      throw new ValorantShopError("Your login session has expired. Please run `/login` again!");
     }
 
     throw new ValorantShopError(
       `An error occurred while communicating with Valorant servers (${errorCode || httpStatus || err.message}).`,
-      err.response?.data
+      err.response?.data,
     );
   }
 };
@@ -112,7 +112,7 @@ const getBalances = async (id) => {
   const req = await requestWithReauth(id, (user, headers) =>
     axios.get(`https://pd.${user.region}.a.pvp.net/store/v1/wallet/${user.puuid}`, {
       headers,
-    })
+    }),
   );
 
   const user = getUser(id);
@@ -132,9 +132,11 @@ const getDailyStore = async (id) => {
     axios.post(
       `https://pd.${user.region}.a.pvp.net/store/v3/storefront/${user.puuid}`,
       {},
-      { headers }
-    )
+      { headers },
+    ),
   );
+
+  recordStorePrices(response.data);
 
   const panel = response.data["SkinsPanelLayout"];
   const skinIds = panel["SingleItemOffers"];
@@ -145,7 +147,7 @@ const getDailyStore = async (id) => {
 
   let skinsData = readSkinsFile();
   const missingSkin = skinIds.some(
-    (uuid) => !skinsData[uuid] || skinsData[uuid].video === undefined
+    (uuid) => !skinsData[uuid] || skinsData[uuid].video === undefined,
   );
   if (missingSkin) {
     const refreshed = await loadWeaponSkins();
@@ -174,7 +176,8 @@ const getDailyStore = async (id) => {
       tierImage: getTierIMG(skinInfo.tier),
       video: skinInfo.video || null,
       videos: skinInfo.videos || [],
-      price: directPrice !== undefined ? Promise.resolve(directPrice) : getWeaponPrice(id, skinUuid),
+      price:
+        directPrice !== undefined ? Promise.resolve(directPrice) : getWeaponPrice(id, skinUuid),
     };
   }
 
@@ -189,16 +192,18 @@ const getFeaturedBundles = async (id) => {
     axios.post(
       `https://pd.${user.region}.a.pvp.net/store/v3/storefront/${user.puuid}`,
       {},
-      { headers }
-    )
+      { headers },
+    ),
   );
+
+  recordStorePrices(response.data);
 
   const featured = response.data["FeaturedBundle"];
   const rawBundles = featured?.Bundles?.length
     ? featured.Bundles
     : featured?.Bundle
-    ? [featured.Bundle]
-    : [];
+      ? [featured.Bundle]
+      : [];
 
   if (!rawBundles.length) {
     throw new ValorantShopError("No active Featured Bundles were found right now!");
@@ -213,8 +218,7 @@ const getFeaturedBundles = async (id) => {
     const rawItems = Array.isArray(b.Items) ? b.Items : [];
 
     const basePrice =
-      b.TotalBaseCost?.[VP_UUID] ??
-      rawItems.reduce((sum, item) => sum + (item.BasePrice || 0), 0);
+      b.TotalBaseCost?.[VP_UUID] ?? rawItems.reduce((sum, item) => sum + (item.BasePrice || 0), 0);
 
     const price =
       b.TotalDiscountedCost?.[VP_UUID] ??
@@ -224,7 +228,7 @@ const getFeaturedBundles = async (id) => {
     const missingSkin = rawItems.some(
       (entry) =>
         entry.Item?.ItemTypeID === SKIN_TYPE_ID &&
-        (!skinsData[entry.Item?.ItemID] || skinsData[entry.Item?.ItemID].video === undefined)
+        (!skinsData[entry.Item?.ItemID] || skinsData[entry.Item?.ItemID].video === undefined),
     );
     if (missingSkin) {
       const refreshed = await loadWeaponSkins();
@@ -268,7 +272,7 @@ const getFeaturedBundles = async (id) => {
           basePrice: itemBasePrice,
           discountedPrice: itemDiscountedPrice,
         };
-      })
+      }),
     );
 
     let name = "Featured Bundle";
@@ -368,8 +372,8 @@ const getAccessoryStore = async (id) => {
     axios.post(
       `https://pd.${user.region}.a.pvp.net/store/v3/storefront/${user.puuid}`,
       {},
-      { headers }
-    )
+      { headers },
+    ),
   );
 
   const accessoryData = response.data["AccessoryStore"];
@@ -412,9 +416,11 @@ const getNightmarket = async (id) => {
     axios.post(
       `https://pd.${user.region}.a.pvp.net/store/v3/storefront/${user.puuid}`,
       {},
-      { headers }
-    )
+      { headers },
+    ),
   );
+
+  recordStorePrices(response.data);
 
   if (typeof response.data["BonusStore"] === "undefined" || !response.data["BonusStore"]) {
     throw new ValorantShopError("There is currently no Night Market available!");
@@ -458,15 +464,72 @@ const getNightmarket = async (id) => {
   return { ...skins, convertedNightmarketDuration };
 };
 
-const getWeaponPrice = async (id, skinId) => {
-  const priceList = await requestWithReauth(id, (user, headers) =>
-    axios
-      .get(`https://pd.${user.region}.a.pvp.net/store/v1/offers/`, { headers })
-      .then((res) => res.data)
-  );
+const PRICES_CACHE_PATH = path.resolve(__dirname, "../../../../data/prices.json");
+let pricesCache = null; // { fetchedAt: number, offers: { [offerId]: vp } }
 
-  const getOfferPrice = priceList["Offers"].find((oId) => oId.OfferID === skinId);
-  return getOfferPrice ? getOfferPrice.Cost[VP_UUID] : 0;
+const loadPricesFromDisk = () => {
+  if (pricesCache) return pricesCache;
+  try {
+    if (fs.existsSync(PRICES_CACHE_PATH)) {
+      pricesCache = JSON.parse(fs.readFileSync(PRICES_CACHE_PATH, "utf-8"));
+    }
+  } catch (_) {}
+  if (!pricesCache || typeof pricesCache.offers !== "object") {
+    pricesCache = { fetchedAt: 0, offers: {} };
+  }
+  return pricesCache;
+};
+
+const recordStorePrices = (storefrontData) => {
+  if (!storefrontData || typeof storefrontData !== "object") return;
+  const cache = loadPricesFromDisk();
+  let changed = false;
+
+  const addOffer = (offer) => {
+    const vp = offer?.Cost?.[VP_UUID];
+    if (offer?.OfferID && vp !== undefined && cache.offers[offer.OfferID] !== vp) {
+      cache.offers[offer.OfferID] = vp;
+      changed = true;
+    }
+  };
+
+  storefrontData.SkinsPanelLayout?.SingleItemStoreOffers?.forEach(addOffer);
+
+  const rawBundles = storefrontData.FeaturedBundle?.Bundles?.length
+    ? storefrontData.FeaturedBundle.Bundles
+    : storefrontData.FeaturedBundle?.Bundle
+      ? [storefrontData.FeaturedBundle.Bundle]
+      : [];
+  for (const bundle of rawBundles) {
+    bundle.ItemOffers?.forEach((io) => addOffer(io?.Offer));
+    for (const item of bundle.Items || []) {
+      const itemId = item.Item?.ItemID;
+      if (itemId && item.BasePrice && cache.offers[itemId] !== item.BasePrice) {
+        cache.offers[itemId] = item.BasePrice;
+        changed = true;
+      }
+    }
+  }
+
+  storefrontData.BonusStore?.BonusStoreOffers?.forEach((bo) => addOffer(bo?.Offer));
+
+  if (changed) {
+    cache.fetchedAt = Date.now();
+    try {
+      fs.writeFileSync(PRICES_CACHE_PATH, JSON.stringify(cache), "utf-8");
+    } catch (_) {}
+  }
+};
+
+const getOfferPrices = async () => {
+  return loadPricesFromDisk();
+};
+
+const getWeaponPrice = async (_id, skinId) => {
+  const prices = loadPricesFromDisk();
+  if (prices.offers[skinId] !== undefined) return prices.offers[skinId];
+  const skinsData = readSkinsFile();
+  return skinsData[skinId]?.price ?? 0;
 };
 
 const readSkinsFile = () => {
@@ -484,5 +547,7 @@ module.exports = {
   getAccessoryStore,
   getNightmarket,
   getBalances,
+  getOfferPrices,
+  getTierIMG,
   ValorantShopError,
 };
