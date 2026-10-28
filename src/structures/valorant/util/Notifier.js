@@ -123,27 +123,43 @@ const checkAccountStoreAndNotify = async (client, account, { forceDm = false } =
 };
 
 /**
- * Runs at 07:00 WIB daily store reset to check all accounts with Wishlist or Daily Store Auto-DM enabled.
+ * Runs daily after store reset to check all accounts with Wishlist or Daily Store Auto-DM enabled.
+ * Includes per-account retries with polite delays to handle transient edge errors gracefully.
  */
 const runDailyStoreNotifications = async (client) => {
   const accounts = getAllAutoCheckAccounts();
   if (!accounts.length) return;
 
   client.logger.ready(
-    `[NOTIFIER] Running 07:00 WIB store check for ${accounts.length} account(s)...`
+    `[NOTIFIER] Running daily store check for ${accounts.length} account(s)...`
   );
 
   let sentCount = 0;
   for (const account of accounts) {
-    try {
-      const res = await checkAccountStoreAndNotify(client, account);
-      if (res.sent) sentCount++;
-    } catch (err) {
-      client.logger.err(
-        `[NOTIFIER] Failed store check for ${account.username} (${account.userId}): ${err.message}`
-      );
+    let success = false;
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    while (!success && attempts < maxAttempts) {
+      attempts++;
+      try {
+        const res = await checkAccountStoreAndNotify(client, account);
+        if (res.sent) sentCount++;
+        success = true;
+      } catch (err) {
+        if (attempts < maxAttempts) {
+          client.logger.warn(
+            `[NOTIFIER] Attempt ${attempts}/${maxAttempts} failed for ${account.username} (${account.userId}): ${err.message}. Retrying in 5s...`
+          );
+          await wait(5000);
+        } else {
+          client.logger.err(
+            `[NOTIFIER] Failed store check for ${account.username} (${account.userId}) after ${maxAttempts} attempts: ${err.message}`
+          );
+        }
+      }
     }
-    await wait(1500);
+    await wait(3500);
   }
 
   client.logger.ready(

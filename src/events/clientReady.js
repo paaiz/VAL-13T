@@ -19,12 +19,17 @@ module.exports = class extends Event {
     // Update latest weapon skins cache from valorant-api.com on startup
     await loadWeaponSkins();
 
-    // Auto-sync weapon skins & send Wishlist / Daily Store DMs daily at 07:00 WIB (Valorant store reset time)
+    // Auto-sync weapon skins & send Wishlist / Daily Store DMs daily at 07:01 WIB
+    // (1-minute buffer after store reset to avoid Riot 502 Bad Gateway during rotation)
     cron.schedule(
-      "0 7 * * *",
+      "1 7 * * *",
       async () => {
-        await loadWeaponSkins();
-        await runDailyStoreNotifications(this.client);
+        try {
+          await loadWeaponSkins();
+          await runDailyStoreNotifications(this.client);
+        } catch (err) {
+          this.client.logger.err(`[NOTIFIER-CRON] - ${err.message}`);
+        }
       },
       { timezone: "Asia/Jakarta" }
     );

@@ -34,8 +34,15 @@
   - Interactive confirmation prompt before revealing your 6 discounted Night.Market weapon skins on a custom canvas image.
 - 💰 **Wallet Balances (`/balances`)**
   - Check your **VALORANT Points (VP)**, **Radianite Points (RP)**, and **Kingdom Credits (KC)** (private/ephemeral by default, with an optional `hide` toggle).
-- 🔐 **Passwordless Riot OAuth & Auto-Refresh (`/login` & `/logout`)**
-  - Authenticate safely via Riot's official OAuth Redirect URL (`#access_token=...`) or `ssid` cookie using a private Discord Modal.
+- 🔍 **Instant Skin & Chroma Lookup (`/skin`)**
+  - Search any weapon skin in VALORANT with instant autocomplete, VP prices, tier info, upgrade levels, interactive chroma variants, and weapon upgrade video previews.
+- 🎯 **Skin Wishlist & Daily Reset Alerts (`/wishlist` & `/notification`)**
+  - Track your favorite skins and automatically receive a direct message when any wishlisted skin hits your store at **07:00 AM**.
+  - Option to receive your full Daily Store canvas image in your DMs automatically every morning.
+- 👥 **Multi-Account Support (`/accounts`)**
+  - Link up to 5 VALORANT accounts per Discord user and seamlessly switch active accounts via an interactive dropdown.
+- 🔐 **Passwordless Riot OAuth with Background Auto-Refresh (`/login` & `/logout`)**
+  - Uses Riot's official Authorization Code flow (`client_id=riot-client`) with `offline_access` (`refresh_token`) to automatically refresh expired tokens in the background—no need to re-login every hour!
 - 🔄 **Automated Skin & Video Cache (`node-cron`)**
   - Automatically syncs the latest VALORANT weapon skins, tiers, and video preview URLs from [Valorant-API](https://valorant-api.com) on startup and daily at **07:00 WIB (`Asia/Jakarta`)**.
 - 🗄️ **Zero-Dependency Embedded SQLite Database**
@@ -47,17 +54,25 @@
 
 ### Slash Commands
 
-| Command        | Options              | Description                                                                 |
-| :------------- | :------------------- | :-------------------------------------------------------------------------- |
-| `/login`       | `input` _(optional)_ | Link your Riot Games account via OAuth Redirect URL or `ssid` cookie        |
-| `/logout`      | —                    | Unlink your Riot Games account and remove stored session data               |
-| `/store`       | —                    | View your daily 4 VALORANT weapon skin offers & watch video previews        |
-| `/bundles`     | —                    | View active Featured Bundles, inspect included items & watch video previews |
-| `/accessories` | —                    | View your weekly Kingdom Credits Accessory Store rotation                   |
-| `/nightmarket` | —                    | View your 6 discounted Night.Market skins                                   |
-| `/balances`    | `hide` _(optional)_  | Check your current VP, RP, and Kingdom Credits balances                     |
-| `/help`        | —                    | Open the interactive command category guide                                 |
-| `/status`      | —                    | View bot statistics, ping, server count, and runtime environment            |
+| Command         | Subcommands / Options   | Description                                                                 |
+| :-------------- | :---------------------- | :-------------------------------------------------------------------------- |
+| `/store`        | —                       | View your daily 4 VALORANT weapon skin offers & watch video previews        |
+| `/wishlist`     | `add <skin>`            | Add a weapon skin to your wishlist (sends DM alert when in store)           |
+|                 | `remove <skin>`         | Remove a skin from your active account's wishlist                           |
+|                 | `list`                  | View and manage your current skin wishlist                                  |
+| `/notification` | `daily-store <enabled>` | Enable or disable receiving your full Daily Store image via DM at 07:00 AM  |
+|                 | `status`                | View and toggle your current DM notification settings                       |
+|                 | `test`                  | Send a test Daily Store & Wishlist notification to your DMs right now       |
+| `/skin`         | `name <skin>`           | Look up any weapon skin—price, tier, chromas & video previews               |
+| `/bundles`      | —                       | View active Featured Bundles, inspect included items & watch video previews |
+| `/accessories`  | —                       | View your weekly Kingdom Credits Accessory Store rotation                   |
+| `/nightmarket`  | —                       | View your 6 discounted Night.Market skins                                   |
+| `/balances`     | `hide` _(optional)_     | Check your current VP, RP, and Kingdom Credits balances                     |
+| `/accounts`     | —                       | Manage up to 5 linked accounts and switch your active account               |
+| `/login`        | `input` _(optional)_    | Link your Riot Games account via OAuth Redirect URL                         |
+| `/logout`       | —                       | Unlink your Riot Games account and remove stored session data               |
+| `/help`         | —                       | Open the interactive command category guide                                 |
+| `/status`       | —                       | View bot statistics, uptime, ping, server count, and runtime environment    |
 
 ### Owner Prefix Commands (`v-`)
 
@@ -169,11 +184,13 @@ npm start
 **VAL-13T** is pre-configured for 24/7 deployment on a homelab server, Raspberry Pi / Mini PC, or VPS using Docker. All persistent data (`data/val13t.db` and `data/skins.json`) is stored inside a mounted `./data` volume so user sessions and blacklists survive container restarts and image updates.
 
 ### Prerequisites
+
 - [Docker Engine](https://docs.docker.com/engine/install/) & [Docker Compose](https://docs.docker.com/compose/install/) installed on your server.
 
 ---
 
 ### Step 1: Clone the Repository on Your Server
+
 SSH into your homelab/server and clone the project (use SSH if the repository is private):
 
 ```bash
@@ -185,14 +202,18 @@ cd VAL-13T
 ---
 
 ### Step 2: Prepare `.env` and `config.json`
+
 > ⚠️ **Important:** Create both files **before** running `docker compose up` so Docker mounts `config.json` as a file rather than an empty directory.
 
 1. Create your `.env` file from the example template:
+
    ```bash
    cp .env.example .env
    nano .env
    ```
+
    Fill in your bot token:
+
    ```env
    BOT_TOKEN=your_discord_bot_token_here
    DEVELOPMENT_TOKEN=
@@ -201,10 +222,12 @@ cd VAL-13T
    ```
 
 2. Create your `src/assets/json/config.json` file from the example template:
+
    ```bash
    cp src/assets/json/config.example.json src/assets/json/config.json
    nano src/assets/json/config.json
    ```
+
    Set `"development": false` and add your Discord User ID under `"owners"`.
 
 3. Ensure the `data/` directory exists for persistent SQLite & skin cache storage:
@@ -215,6 +238,7 @@ cd VAL-13T
 ---
 
 ### Step 3: Build & Start the Container
+
 Run Docker Compose in detached mode (`-d`):
 
 ```bash
@@ -222,15 +246,17 @@ docker compose up -d --build
 ```
 
 What happens automatically:
+
 - Pulls `node:22-bookworm-slim` and installs required font rendering libraries (`fontconfig`, `libfreetype6`) for `@napi-rs/canvas`.
 - Installs production Node.js dependencies.
 - Mounts `./data` to `/app/data` (persisting `val13t.db` and `skins.json` on your host disk).
-- Sets `TZ=Asia/Jakarta` so the daily **07:00 WIB** skin cache cron job runs on time.
+- Sets `TZ=Asia/Jakarta` so the daily **07:00 AM** skin cache cron job runs on time.
 - Configures `restart: unless-stopped` so the bot automatically starts back up if the server reboots.
 
 ---
 
 ### Step 4: Verify Logs & Container Status
+
 Check that the bot logged in and synced the weapon skins cache:
 
 ```bash
@@ -238,6 +264,7 @@ docker compose logs -f
 ```
 
 Expected output:
+
 ```text
 [READY] [25/10/2026, 17:00:00] : SQLite Database Ready (/app/data/val13t.db)
 [READY] [25/10/2026, 17:00:01] : Logged In As VAL-13T#0516
@@ -252,18 +279,19 @@ Expected output:
 
 ### Managing & Updating the Bot on Docker
 
-| Task | Command |
-| :--- | :--- |
-| **View live logs** | `docker compose logs -f` |
-| **Check container status** | `docker compose ps` |
-| **Restart the bot** | `docker compose restart` |
-| **Stop the bot** | `docker compose down` |
-| **Update to latest code** | `git pull && docker compose up -d --build` |
-| **Backup SQLite database** | `cp data/val13t.db data/val13t.backup.db` |
+| Task                       | Command                                    |
+| :------------------------- | :----------------------------------------- |
+| **View live logs**         | `docker compose logs -f`                   |
+| **Check container status** | `docker compose ps`                        |
+| **Restart the bot**        | `docker compose restart`                   |
+| **Stop the bot**           | `docker compose down`                      |
+| **Update to latest code**  | `git pull && docker compose up -d --build` |
+| **Backup SQLite database** | `cp data/val13t.db data/val13t.backup.db`  |
 
 ---
 
 ### Alternative: Run with `docker build` & `docker run` (Without Compose)
+
 If you prefer running Docker CLI directly without Docker Compose:
 
 ```bash

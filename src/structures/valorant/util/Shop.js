@@ -58,9 +58,11 @@ const ensureClientHeaders = async (id, user) => {
   };
 };
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
- * Helper to execute an authenticated Riot PD request with proactive 5-min buffer refresh
- * and automatic retry on 400/401/BAD_CLAIMS.
+ * Helper to execute an authenticated Riot PD request with proactive 5-min buffer refresh,
+ * automatic retry on 400/401/BAD_CLAIMS, and exponential backoff on transient 502/503/504/network errors.
  */
 const requestWithReauth = async (id, requestFn, puuid = null) => {
   let user = puuid ? getAccountByPuuid(id, puuid) : getUser(id);
@@ -76,32 +78,55 @@ const requestWithReauth = async (id, requestFn, puuid = null) => {
     }
   }
 
-  try {
-    const headers = await ensureClientHeaders(id, user);
-    return await requestFn(user, headers);
-  } catch (err) {
-    const httpStatus = err.response?.status;
-    const errorCode = err.response?.data?.errorCode;
+  const maxTransientRetries = 3;
+  let attempt = 0;
+  let reauthAttempted = false;
 
-    if (httpStatus === 503) {
+  while (true) {
+    try {
+      const headers = await ensureClientHeaders(id, user);
+      return await requestFn(user, headers);
+    } catch (err) {
+      const httpStatus = err.response?.status;
+      const errorCode = err.response?.data?.errorCode;
+      const isTransient =
+        httpStatus === 502 ||
+        httpStatus === 503 ||
+        httpStatus === 504 ||
+        err.code === "ECONNRESET" ||
+        err.code === "ETIMEDOUT" ||
+        err.code === "ECONNABORTED";
+
+      // If it's a transient Riot gateway/server error and we have retries left, wait and retry
+      if (isTransient && attempt < maxTransientRetries) {
+        attempt++;
+        const backoffMs = attempt * 3000; // 3s, 6s, 9s
+        await wait(backoffMs);
+        continue;
+      }
+
+      // If token expired / bad claims, try to reauth once
+      if (!reauthAttempted && (errorCode === "BAD_CLAIMS" || httpStatus === 400 || httpStatus === 401)) {
+        reauthAttempted = true;
+        const refreshedUser = await reauthorizeUser(id, { force: true, puuid: user.puuid });
+        if (refreshedUser) {
+          user = refreshedUser;
+          continue;
+        }
+        throw new ValorantShopError("Your login session has expired. Please run `/login` again!");
+      }
+
+      if (httpStatus === 503) {
+        throw new ValorantShopError(
+          "Valorant services are currently unavailable. Please try again later!",
+        );
+      }
+
       throw new ValorantShopError(
-        "Valorant services are currently unavailable. Please try again later!",
+        `An error occurred while communicating with Valorant servers (${errorCode || httpStatus || err.message}).`,
+        err.response?.data,
       );
     }
-
-    if (errorCode === "BAD_CLAIMS" || httpStatus === 400 || httpStatus === 401) {
-      const refreshedUser = await reauthorizeUser(id, { force: true, puuid: user.puuid });
-      if (refreshedUser) {
-        const newHeaders = await ensureClientHeaders(id, refreshedUser);
-        return await requestFn(refreshedUser, newHeaders);
-      }
-      throw new ValorantShopError("Your login session has expired. Please run `/login` again!");
-    }
-
-    throw new ValorantShopError(
-      `An error occurred while communicating with Valorant servers (${errorCode || httpStatus || err.message}).`,
-      err.response?.data,
-    );
   }
 };
 
