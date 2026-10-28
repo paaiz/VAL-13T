@@ -79,6 +79,7 @@
 | Command                       | Aliases                       | Description                                                           |
 | :---------------------------- | :---------------------------- | :-------------------------------------------------------------------- |
 | `v-save`                      | —                             | Manually trigger a weapon skin & video cache sync (`data/skins.json`) |
+| `v-notifier [force]`          | `run-notifier`, `check-store` | Manually run daily store & wishlist check for all accounts (force DM) |
 | `v-serverlist`                | `guild_list`, `server_list`   | Paginated list of all servers the bot is currently in                 |
 | `v-blacklist [remove] <user>` | —                             | Blacklist or unblacklist a Discord user from using the bot            |
 | `v-leaveserver <guildId>`     | `leave_guild`, `leave_server` | Force the bot to leave a specific server by ID                        |

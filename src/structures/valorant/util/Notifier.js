@@ -4,12 +4,23 @@ const { generateDailyStoreImage } = require("./StoreDesign");
 const {
   getWishlist,
   getAllAutoCheckAccounts,
+  getSystemSetting,
+  setSystemSetting,
 } = require("../../database/Database");
 
 const VP_EMOJI = "<:vp_png:974611751146496020>";
 const VALORANT_EMOJI = "<:valorant_logo:965476928930852864>";
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const getJakartaDateString = () => {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+};
 
 /**
  * Checks a specific Valorant account's daily store and sends a DM if:
@@ -125,13 +136,27 @@ const checkAccountStoreAndNotify = async (client, account, { forceDm = false } =
 /**
  * Runs daily after store reset to check all accounts with Wishlist or Daily Store Auto-DM enabled.
  * Includes per-account retries with polite delays to handle transient edge errors gracefully.
+ * Tracks last_store_notified_date to avoid duplicate notifications on restarts.
  */
-const runDailyStoreNotifications = async (client) => {
+const runDailyStoreNotifications = async (client, { force = false } = {}) => {
+  const todayStr = getJakartaDateString();
+  const lastRun = getSystemSetting("last_store_notified_date");
+
+  if (!force && lastRun === todayStr) {
+    client.logger.ready(
+      `[NOTIFIER] Daily store check for ${todayStr} already completed earlier today. Skipping.`
+    );
+    return { skipped: true, todayStr, sentCount: 0 };
+  }
+
   const accounts = getAllAutoCheckAccounts();
-  if (!accounts.length) return;
+  if (!accounts.length) {
+    setSystemSetting("last_store_notified_date", todayStr);
+    return { skipped: false, todayStr, sentCount: 0 };
+  }
 
   client.logger.ready(
-    `[NOTIFIER] Running daily store check for ${accounts.length} account(s)...`
+    `[NOTIFIER] Running daily store check for ${accounts.length} account(s) (${todayStr})...`
   );
 
   let sentCount = 0;
@@ -162,9 +187,12 @@ const runDailyStoreNotifications = async (client) => {
     await wait(3500);
   }
 
+  setSystemSetting("last_store_notified_date", todayStr);
   client.logger.ready(
-    `[NOTIFIER] Completed daily store check! Sent ${sentCount} DM notification(s).`
+    `[NOTIFIER] Completed daily store check! Sent ${sentCount} DM notification(s) for ${todayStr}.`
   );
+
+  return { skipped: false, todayStr, sentCount };
 };
 
 module.exports = {

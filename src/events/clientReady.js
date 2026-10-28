@@ -34,6 +34,25 @@ module.exports = class extends Event {
       { timezone: "Asia/Jakarta" }
     );
 
+    // Auto catch-up: if bot starts/restarts past 07:00 WIB and today's notifications haven't completed yet
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Jakarta",
+      hour: "numeric",
+      hour12: false,
+    }).formatToParts(new Date());
+    const currentHourWIB = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
+
+    if (currentHourWIB >= 7) {
+      setTimeout(async () => {
+        try {
+          this.client.logger.ready("[NOTIFIER] Checking if today's store notifications were delivered...");
+          await runDailyStoreNotifications(this.client);
+        } catch (err) {
+          this.client.logger.err(`[NOTIFIER-STARTUP] - ${err.message}`);
+        }
+      }, 5000);
+    }
+
     // Status
     let number = 0;
     const updateActivity = () => {
