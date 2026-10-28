@@ -1,4 +1,5 @@
 const Command = require("../structures/PrefixCommand");
+const { EmbedBuilder } = require("discord.js");
 const { runDailyStoreNotifications } = require("../structures/valorant/util/Notifier");
 
 module.exports = class extends Command {
@@ -21,12 +22,31 @@ module.exports = class extends Command {
 
       if (res.skipped) {
         return statusMsg.edit({
-          content: `ℹ️ Today's store check (\`${res.todayStr}\`) was already completed earlier! Use \`${this.client.config.client.prefix}notifier force\` to re-run and re-send.`,
+          content: `ℹ️ Today's store check (\`${res.todayStr}\`) was already completed earlier!\nUse \`${this.client.config.client.prefix}notifier force\` to re-run and inspect all accounts.`,
         });
       }
 
+      const resultsList = (res.results || [])
+        .map(
+          (r) =>
+            `${r.sent ? "✅" : "⏸️"} **${r.username}** (<@${r.userId}>)\n└ *${r.status}*`
+        )
+        .join("\n\n");
+
+      const embed = new EmbedBuilder()
+        .setColor("Red")
+        .setTitle(`Daily Store Check Summary (${res.todayStr})`)
+        .setDescription(
+          `Checked **${res.results?.length || 0}** account(s) • Sent **${res.sentCount}** DM(s)\n\n${resultsList || "No accounts processed."}`
+        )
+        .setFooter({
+          text: `Triggered by ${message.author.username}`,
+          iconURL: message.author.displayAvatarURL(),
+        });
+
       return statusMsg.edit({
-        content: `✅ Successfully completed daily store check for **${res.todayStr}**! Sent **${res.sentCount}** DM notification(s).`,
+        content: null,
+        embeds: [embed],
       });
     } catch (err) {
       this.client.logger.err(`[NOTIFIER-PREFIX] - ${err.message}`);

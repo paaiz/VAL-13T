@@ -146,13 +146,13 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
     client.logger.ready(
       `[NOTIFIER] Daily store check for ${todayStr} already completed earlier today. Skipping.`
     );
-    return { skipped: true, todayStr, sentCount: 0 };
+    return { skipped: true, todayStr, sentCount: 0, results: [] };
   }
 
   const accounts = getAllAutoCheckAccounts();
   if (!accounts.length) {
     setSystemSetting("last_store_notified_date", todayStr);
-    return { skipped: false, todayStr, sentCount: 0 };
+    return { skipped: false, todayStr, sentCount: 0, results: [] };
   }
 
   client.logger.ready(
@@ -160,6 +160,8 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
   );
 
   let sentCount = 0;
+  const results = [];
+
   for (const account of accounts) {
     let success = false;
     let attempts = 0;
@@ -178,10 +180,22 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
           client.logger.ready(
             `[NOTIFIER] Sent DM to ${account.username} (${account.userId}): ${matchInfo}`
           );
+          results.push({
+            username: account.username,
+            userId: account.userId,
+            sent: true,
+            status: matchInfo,
+          });
         } else {
           client.logger.ready(
             `[NOTIFIER] No DM needed for ${account.username} (${account.userId}): Wishlist skin not in today's store & Daily Store Auto-DM is disabled.`
           );
+          results.push({
+            username: account.username,
+            userId: account.userId,
+            sent: false,
+            status: "Wishlist skin not in today's store & Daily DM disabled",
+          });
         }
         success = true;
       } catch (err) {
@@ -194,6 +208,12 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
           client.logger.err(
             `[NOTIFIER] Failed store check for ${account.username} (${account.userId}) after ${maxAttempts} attempts: ${err.message}`
           );
+          results.push({
+            username: account.username,
+            userId: account.userId,
+            sent: false,
+            status: `Failed: ${err.message}`,
+          });
         }
       }
     }
@@ -205,7 +225,7 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
     `[NOTIFIER] Completed daily store check! Sent ${sentCount} DM notification(s) for ${todayStr}.`
   );
 
-  return { skipped: false, todayStr, sentCount };
+  return { skipped: false, todayStr, sentCount, results };
 };
 
 module.exports = {
