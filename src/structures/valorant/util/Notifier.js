@@ -169,7 +169,20 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
       attempts++;
       try {
         const res = await checkAccountStoreAndNotify(client, account);
-        if (res.sent) sentCount++;
+        if (res.sent) {
+          sentCount++;
+          const matchInfo =
+            res.matchedCount > 0
+              ? `${res.matchedCount} wishlist match(es)`
+              : "Daily Store Auto-DM";
+          client.logger.ready(
+            `[NOTIFIER] Sent DM to ${account.username} (${account.userId}): ${matchInfo}`
+          );
+        } else {
+          client.logger.ready(
+            `[NOTIFIER] No DM needed for ${account.username} (${account.userId}): Wishlist skin not in today's store & Daily Store Auto-DM is disabled.`
+          );
+        }
         success = true;
       } catch (err) {
         if (attempts < maxAttempts) {
