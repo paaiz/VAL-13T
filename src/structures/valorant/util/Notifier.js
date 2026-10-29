@@ -23,6 +23,161 @@ const getJakartaDateString = () => {
 };
 
 /**
+ * Checks if an error is non-retryable (fatal), meaning retrying immediately without user/external
+ * intervention will inevitably produce the exact same error (e.g. DM closed, session expired, invalid user).
+ */
+const isNonRetryableError = (err) => {
+  if (!err) return false;
+
+  // Discord API errors: DMs disabled / user blocked bot (50007), Unknown User (10013), Forbidden (403)
+  if (err.code === 50007 || err.code === 10013 || err.status === 403) {
+    return true;
+  }
+
+  const msg = (err.message || "").toLowerCase();
+  if (
+    msg.includes("cannot send messages to this user") ||
+    msg.includes("session has expired") ||
+    msg.includes("not logged in") ||
+    msg.includes("user not found") ||
+    msg.includes("bad_claims")
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Formats a concise, descriptive failure status for logging and user notifications.
+ */
+const formatFailureStatus = (err) => {
+  if (!err) return "Unknown error";
+  if (
+    err.code === 50007 ||
+    err.message?.toLowerCase().includes("cannot send messages to this user")
+  ) {
+    return "DM Closed / Bot Blocked by user";
+  }
+  if (err.message?.toLowerCase().includes("session has expired")) {
+    return "Session expired (/login required)";
+  }
+  if (err.message?.toLowerCase().includes("not logged in")) {
+    return "Account not logged in";
+  }
+  return err.message;
+};
+
+/**
+ * Checks if an error is related to Riot / Valorant Daily Store (e.g. session expired, store API error).
+ */
+const isValorantStoreError = (err) => {
+  if (!err) return false;
+
+  // Discord-specific errors (e.g. DM closed, unknown Discord user) are not Valorant store errors
+  if (err.code === 50007 || err.code === 10013 || err.status === 403) {
+    const msg = (err.message || "").toLowerCase();
+    if (msg.includes("cannot send messages") || msg.includes("missing permissions")) {
+      return false;
+    }
+  }
+
+  const msg = (err.message || "").toLowerCase();
+  if (msg.includes("cannot send messages to this user") || msg.includes("user not found")) {
+    return false;
+  }
+
+  return (
+    err.name === "ValorantShopError" ||
+    err.name === "ValorantAPIError" ||
+    msg.includes("session has expired") ||
+    msg.includes("not logged in") ||
+    msg.includes("bad_claims") ||
+    msg.includes("valorant") ||
+    msg.includes("store") ||
+    msg.includes("riot") ||
+    msg.includes("503") ||
+    msg.includes("502") ||
+    msg.includes("econnreset") ||
+    msg.includes("etimedout")
+  );
+};
+
+/**
+ * Sends a DM notification embed to the user when a Valorant Daily Store error occurs,
+ * explaining the error and what actions the user should take.
+ */
+const sendStoreErrorNotification = async (client, account, err) => {
+  // Only send error notification if the account has Daily Store notification enabled
+  if (!account?.userId || !account.dailyDm) return;
+
+  try {
+    const discordUser = await client.users.fetch(account.userId).catch(() => null);
+    if (!discordUser) return;
+
+    const errMsg = err?.message || "Unknown error";
+    const lowerMsg = errMsg.toLowerCase();
+
+    let whatUserShouldDo = "";
+
+    if (
+      lowerMsg.includes("session has expired") ||
+      lowerMsg.includes("bad_claims") ||
+      lowerMsg.includes("401") ||
+      lowerMsg.includes("not logged in")
+    ) {
+      whatUserShouldDo =
+        "Your Valorant login session has expired, so VAL-13T could not check today's store offers.\n\n" +
+        "**What you need to do:**\n" +
+        "> 1. Go to any Discord server where this bot is present.\n" +
+        "> 2. Run the slash command `/login`.\n" +
+        "> 3. Follow the instructions to re-authenticate your Valorant account.";
+    } else if (
+      lowerMsg.includes("503") ||
+      lowerMsg.includes("unavailable") ||
+      lowerMsg.includes("maintenance")
+    ) {
+      whatUserShouldDo =
+        "Riot Games / Valorant store servers are currently experiencing issues or undergoing maintenance.\n\n" +
+        "**What you need to do:**\n" +
+        "> • No action is required on your end right now. Please wait until Riot finishes maintenance.\n" +
+        "> • You can manually check your store later using `/store`.";
+    } else {
+      whatUserShouldDo =
+        "An unexpected error occurred while communicating with Riot's store servers.\n\n" +
+        "**What you need to do:**\n" +
+        "> • Try checking your store manually later with `/store`.\n" +
+        "> • If this issue persists tomorrow, try refreshing your session with `/login`.";
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor("Red")
+      .setAuthor({
+        name: `Daily Store Automation for: ${account.username}`,
+        iconURL: discordUser.displayAvatarURL(),
+      })
+      .setDescription(
+        [
+          `Failed to automatically check today's Daily Store for **${account.username}** (${(account.region || "AP").toUpperCase()}).`,
+          "",
+          `**Error:**`,
+          `\`\`\`\n${errMsg}\n\`\`\``,
+          whatUserShouldDo,
+        ].join("\n"),
+      )
+      .setFooter({
+        text: "VAL-13T • Manage notifications anytime with /notification or /wishlist",
+        iconURL: client.user.displayAvatarURL(),
+      })
+      .setTimestamp();
+
+    await discordUser.send({ embeds: [embed] }).catch(() => null);
+  } catch (_) {
+    // Silently ignore if DM delivery fails
+  }
+};
+
+/**
  * Checks a specific Valorant account's daily store and sends a DM if:
  * - One or more wishlisted skins are in today's store, OR
  * - The account has Daily Store Auto-DM (`dailyDm`) enabled, OR
@@ -67,20 +222,17 @@ const checkAccountStoreAndNotify = async (client, account, { forceDm = false } =
 
   const image = await generateDailyStoreImage(dailyStore);
 
-  const embed = new EmbedBuilder()
-    .setColor("Red")
-    .setImage("attachment://store.png")
-    .setFooter({
-      text: "VAL-13T • Manage notifications anytime with /notification or /wishlist",
-      iconURL: client.user.displayAvatarURL(),
-    });
+  const embed = new EmbedBuilder().setColor("Red").setImage("attachment://store.png").setFooter({
+    text: "VAL-13T • Manage notifications anytime with /notification or /wishlist",
+    iconURL: client.user.displayAvatarURL(),
+  });
 
   if (matchedSkins.length > 0) {
     const matchLines = matchedSkins.map(
       (m) =>
         `> ${VALORANT_EMOJI} **${m.name}** — ${VP_EMOJI} **${
           m.price ? m.price.toLocaleString("en-US") : "?"
-        }** VP`
+        }** VP`,
     );
 
     embed
@@ -91,14 +243,12 @@ const checkAccountStoreAndNotify = async (client, account, { forceDm = false } =
       .setTitle(
         `🎉 ${matchedSkins.length} Wishlisted Skin${
           matchedSkins.length > 1 ? "s" : ""
-        } in Your Store!`
+        } in Your Store!`,
       )
       .setDescription(
-        [
-          ...matchLines,
-          "",
-          `This store expires <t:${dailyStore.convertedStoreDuration}:R>`,
-        ].join("\n")
+        [...matchLines, "", `This store expires <t:${dailyStore.convertedStoreDuration}:R>`].join(
+          "\n",
+        ),
       );
   } else {
     embed
@@ -116,7 +266,7 @@ const checkAccountStoreAndNotify = async (client, account, { forceDm = false } =
             : "",
         ]
           .filter(Boolean)
-          .join("\n")
+          .join("\n"),
       );
   }
 
@@ -144,7 +294,7 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
 
   if (!force && lastRun === todayStr) {
     client.logger.ready(
-      `[NOTIFIER] Daily store check for ${todayStr} already completed earlier today. Skipping.`
+      `[NOTIFIER] Daily store check for ${todayStr} already completed earlier today. Skipping.`,
     );
     return { skipped: true, todayStr, sentCount: 0, results: [] };
   }
@@ -156,7 +306,7 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
   }
 
   client.logger.ready(
-    `[NOTIFIER] Running daily store check for ${accounts.length} account(s) (${todayStr})...`
+    `[NOTIFIER] Running daily store check for ${accounts.length} account(s) (${todayStr})...`,
   );
 
   let sentCount = 0;
@@ -174,11 +324,9 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
         if (res.sent) {
           sentCount++;
           const matchInfo =
-            res.matchedCount > 0
-              ? `${res.matchedCount} wishlist match(es)`
-              : "Daily Store Auto-DM";
+            res.matchedCount > 0 ? `${res.matchedCount} wishlist match(es)` : "Daily Store Auto-DM";
           client.logger.ready(
-            `[NOTIFIER] Sent DM to ${account.username} (${account.userId}): ${matchInfo}`
+            `[NOTIFIER] Sent DM to ${account.username} (${account.userId}): ${matchInfo}`,
           );
           results.push({
             username: account.username,
@@ -186,9 +334,26 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
             sent: true,
             status: matchInfo,
           });
+        } else if (res.reason === "user_not_found") {
+          client.logger.warn(
+            `[NOTIFIER] Discord user not found for ${account.username} (${account.userId}). Skipping notification.`,
+          );
+          results.push({
+            username: account.username,
+            userId: account.userId,
+            sent: false,
+            status: "Discord user not found",
+          });
+        } else if (res.reason === "no_triggers") {
+          results.push({
+            username: account.username,
+            userId: account.userId,
+            sent: false,
+            status: "No active triggers",
+          });
         } else {
           client.logger.ready(
-            `[NOTIFIER] No DM needed for ${account.username} (${account.userId}): Wishlist skin not in today's store & Daily Store Auto-DM is disabled.`
+            `[NOTIFIER] No DM needed for ${account.username} (${account.userId}): Wishlist skin not in today's store & Daily Store Auto-DM is disabled.`,
           );
           results.push({
             username: account.username,
@@ -199,21 +364,33 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
         }
         success = true;
       } catch (err) {
-        if (attempts < maxAttempts) {
+        const isFatal = isNonRetryableError(err);
+        const failureLabel = formatFailureStatus(err);
+
+        if (!isFatal && attempts < maxAttempts) {
           client.logger.warn(
-            `[NOTIFIER] Attempt ${attempts}/${maxAttempts} failed for ${account.username} (${account.userId}): ${err.message}. Retrying in 5s...`
+            `[NOTIFIER] Attempt ${attempts}/${maxAttempts} failed for ${account.username} (${account.userId}): ${err.message}. Retrying in 5s...`,
           );
           await wait(5000);
         } else {
-          client.logger.err(
-            `[NOTIFIER] Failed store check for ${account.username} (${account.userId}) after ${maxAttempts} attempts: ${err.message}`
-          );
+          const logMsg = isFatal
+            ? `[NOTIFIER] Non-retryable error for ${account.username} (${account.userId}): ${failureLabel}. Skipping retries.`
+            : `[NOTIFIER] Failed store check for ${account.username} (${account.userId}) after ${maxAttempts} attempts: ${err.message}`;
+
+          client.logger.err(logMsg);
           results.push({
             username: account.username,
             userId: account.userId,
             sent: false,
-            status: `Failed: ${err.message}`,
+            status: isFatal ? `Failed: ${failureLabel}` : `Failed: ${err.message}`,
           });
+
+          // Send an explanatory embed to the user only if Daily Store notification is enabled
+          if (account.dailyDm && isValorantStoreError(err)) {
+            await sendStoreErrorNotification(client, account, err);
+          }
+
+          break; // Stop retry loop immediately for non-retryable errors
         }
       }
     }
@@ -222,7 +399,7 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
 
   setSystemSetting("last_store_notified_date", todayStr);
   client.logger.ready(
-    `[NOTIFIER] Completed daily store check! Sent ${sentCount} DM notification(s) for ${todayStr}.`
+    `[NOTIFIER] Completed daily store check! Sent ${sentCount} DM notification(s) for ${todayStr}.`,
   );
 
   return { skipped: false, todayStr, sentCount, results };
@@ -231,4 +408,5 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
 module.exports = {
   checkAccountStoreAndNotify,
   runDailyStoreNotifications,
+  sendStoreErrorNotification,
 };
