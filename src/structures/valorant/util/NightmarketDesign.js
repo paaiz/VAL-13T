@@ -7,6 +7,17 @@ GlobalFonts.registerFromPath(
   "Latino Type Standard"
 );
 
+// In-memory cache for Night Market background
+let cachedNightmarketBackground = null;
+const getNightmarketBackground = async () => {
+  if (!cachedNightmarketBackground) {
+    cachedNightmarketBackground = await loadImage(
+      path.resolve(__dirname, "../../../assets/images/nightmarket_background.png")
+    );
+  }
+  return cachedNightmarketBackground;
+};
+
 const genetareNightMarketImage = async (skins) => {
   const canvas = createCanvas(1627, 410);
   const ctx = canvas.getContext("2d");
@@ -14,26 +25,37 @@ const genetareNightMarketImage = async (skins) => {
   ctx.font = '40px "Latino Type Standard"';
   ctx.fillStyle = "#FFFFFF";
 
-  const background = await loadImage(
-    path.resolve(__dirname, "../../../assets/images/nightmarket_background.png")
-  );
+  const background = await getNightmarketBackground();
   ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-  // * WEAPON IMAGE SKIN 1-6
-  const skin1WeaponImg = await loadImage(skins["skin_1"].image);
-  const skin2WeaponImg = await loadImage(skins["skin_2"].image);
-  const skin3WeaponImg = await loadImage(skins["skin_3"].image);
-  const skin4WeaponImg = await loadImage(skins["skin_4"].image);
-  const skin5WeaponImg = await loadImage(skins["skin_5"].image);
-  const skin6WeaponImg = await loadImage(skins["skin_6"].image);
-
-  // * WEAPON TIER IMAGE SKIN 1-6
-  const skin1TierImg = await loadImage(skins["skin_1"].tier);
-  const skin2TierImg = await loadImage(skins["skin_2"].tier);
-  const skin3TierImg = await loadImage(skins["skin_3"].tier);
-  const skin4TierImg = await loadImage(skins["skin_4"].tier);
-  const skin5TierImg = await loadImage(skins["skin_5"].tier);
-  const skin6TierImg = await loadImage(skins["skin_6"].tier);
+  // Load all weapon images and tier images in parallel
+  const [
+    skin1WeaponImg,
+    skin2WeaponImg,
+    skin3WeaponImg,
+    skin4WeaponImg,
+    skin5WeaponImg,
+    skin6WeaponImg,
+    skin1TierImg,
+    skin2TierImg,
+    skin3TierImg,
+    skin4TierImg,
+    skin5TierImg,
+    skin6TierImg,
+  ] = await Promise.all([
+    loadImage(skins["skin_1"].image),
+    loadImage(skins["skin_2"].image),
+    loadImage(skins["skin_3"].image),
+    loadImage(skins["skin_4"].image),
+    loadImage(skins["skin_5"].image),
+    loadImage(skins["skin_6"].image),
+    loadImage(skins["skin_1"].tier),
+    loadImage(skins["skin_2"].tier),
+    loadImage(skins["skin_3"].tier),
+    loadImage(skins["skin_4"].tier),
+    loadImage(skins["skin_5"].tier),
+    loadImage(skins["skin_6"].tier),
+  ]);
 
   // * WEAPON SKIN NAME 1-6
   const skin1WeaponText = skins["skin_1"].name;

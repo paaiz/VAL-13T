@@ -4,6 +4,7 @@ const {
   GatewayIntentBits,
   Partials,
   PermissionsBitField,
+  Options,
 } = require("discord.js");
 const chalk = require("chalk");
 
@@ -35,6 +36,31 @@ module.exports = class MainClient extends Client {
         GatewayIntentBits.MessageContent,
       ],
       partials: [Partials.User, Partials.Channel, Partials.GuildMember, Partials.Message],
+      // Memory Optimization: Restrict unneeded managers from bloating RAM
+      makeCache: Options.cacheWithLimits({
+        MessageManager: 10, // Keep max 10 messages per channel for prefix command handling
+        PresenceManager: 0, // No user presence/status caching
+        ReactionManager: 0,
+        ReactionUserManager: 0,
+        ApplicationCommandManager: 0,
+        BaseGuildEmojiManager: 0,
+        GuildEmojiManager: 0,
+        GuildMemberManager: 50, // Keep max 50 members per guild in RAM
+        GuildStickerManager: 0,
+        GuildScheduledEventManager: 0,
+        StageInstanceManager: 0,
+        ThreadManager: 0,
+        ThreadMemberManager: 0,
+        VoiceStateManager: 0,
+        AutoModerationRuleManager: 0,
+      }),
+      sweepers: {
+        ...Options.DefaultSweeperSettings,
+        messages: {
+          interval: 3600, // Sweep every 1 hour
+          lifetime: 1800, // Delete cached messages older than 30 mins
+        },
+      },
     });
 
     this.validate(options);

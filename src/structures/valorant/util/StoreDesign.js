@@ -10,6 +10,49 @@ GlobalFonts.registerFromPath(
   "Latino Type Standard"
 );
 
+// In-memory caches to save CPU, network bandwidth, and disk I/O
+let cachedBackground = null;
+const tierCache = new Map();
+const skinImageCache = new Map();
+const MAX_SKIN_CACHE = 120; // Bound cache size to prevent memory leaks
+
+const getBackground = async () => {
+  if (!cachedBackground) {
+    cachedBackground = await loadImage(
+      path.resolve(__dirname, "../../../assets/images/store_background.png")
+    );
+  }
+  return cachedBackground;
+};
+
+const getCachedTierImage = async (url) => {
+  if (!url) return null;
+  if (tierCache.has(url)) return tierCache.get(url);
+  try {
+    const img = await loadImage(url);
+    tierCache.set(url, img);
+    return img;
+  } catch (_) {
+    return null;
+  }
+};
+
+const getCachedSkinImage = async (url) => {
+  if (!url) return null;
+  if (skinImageCache.has(url)) return skinImageCache.get(url);
+  try {
+    const img = await loadImage(url);
+    if (skinImageCache.size >= MAX_SKIN_CACHE) {
+      const oldestKey = skinImageCache.keys().next().value;
+      skinImageCache.delete(oldestKey);
+    }
+    skinImageCache.set(url, img);
+    return img;
+  } catch (_) {
+    return null;
+  }
+};
+
 /**
  * Draws weapon information on the canvas.
  *
@@ -23,12 +66,20 @@ GlobalFonts.registerFromPath(
  * @return {Promise<void>} - A promise that resolves when the drawing is complete.
  */
 const drawWeaponInfo = async (ctx, x, y, skin) => {
-  const weaponImg = await loadImage(skin.image);
-  const tierImg = await loadImage(skin.tierImage);
-  const price = await skin.price;
+  if (!skin) return;
 
-  ctx.drawImage(weaponImg, x, y, 392, 92);
-  ctx.drawImage(tierImg, x - 80 ? x - 10 : x - 45, y - 65 ? 215 : 10, 44, 44);
+  const [weaponImg, tierImg, price] = await Promise.all([
+    getCachedSkinImage(skin.image),
+    getCachedTierImage(skin.tierImage),
+    Promise.resolve(skin.price).catch(() => 0),
+  ]);
+
+  if (weaponImg) {
+    ctx.drawImage(weaponImg, x, y, 392, 92);
+  }
+  if (tierImg) {
+    ctx.drawImage(tierImg, x - 80 ? x - 10 : x - 45, y - 65 ? 215 : 10, 44, 44);
+  }
   ctx.fillText(trimString(skin.name), x - 80 ? x - 20 : x - 50, y - 65 ? 400 : 190);
   ctx.fillText(String(price), x - 80 ? x + 366 : x + 336, y - 65 ? 254 : 48);
 };
@@ -55,17 +106,17 @@ const generateDailyStoreImage = async (skins) => {
   ctx.font = '40px "Latino Type Standard"';
   ctx.fillStyle = "#FFFFFF";
 
-  // Background
-  const background = await loadImage(
-    path.resolve(__dirname, "../../../assets/images/store_background.png")
-  );
+  // Background (re-use cached image from memory)
+  const background = await getBackground();
   ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-  // Placement for skins
-  await drawWeaponInfo(ctx, 80, 65, skins["skin_1"]);
-  await drawWeaponInfo(ctx, 80, 280, skins["skin_2"]);
-  await drawWeaponInfo(ctx, 590, 65, skins["skin_3"]);
-  await drawWeaponInfo(ctx, 590, 280, skins["skin_4"]);
+  // Placement for skins - rendered concurrently in parallel for max speed
+  await Promise.all([
+    drawWeaponInfo(ctx, 80, 65, skins["skin_1"]),
+    drawWeaponInfo(ctx, 80, 280, skins["skin_2"]),
+    drawWeaponInfo(ctx, 590, 65, skins["skin_3"]),
+    drawWeaponInfo(ctx, 590, 280, skins["skin_4"]),
+  ]);
 
   const attachment = new AttachmentBuilder(canvas.toBuffer("image/png"), {
     name: "store.png",
