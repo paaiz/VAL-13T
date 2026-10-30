@@ -1,0 +1,44 @@
+name: Deploy VAL-13T (Home Server)
+
+# Only trigger deployment when code is pushed directly to the main branch
+on:
+  push:
+    branches:
+      - main
+
+# Prevent overlapping deployments if multiple commits are pushed in quick succession
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Auto-Deploy Container
+    runs-on: self-hosted
+
+    steps:
+      - name: Pull Latest Code and Rebuild Docker
+        run: |
+          echo "🚀 Deploying VAL-13T update on $(hostname)..."
+
+          # Navigate to the production repository directory on your Ubuntu home server
+          if [ -d "/Programming/VAL-13T" ]; then
+            cd "/Programming/VAL-13T"
+          elif [ -d "$HOME/Programming/VAL-13T" ]; then
+            cd "$HOME/Programming/VAL-13T"
+          elif [ -d "$HOME/VAL-13T" ]; then
+            cd "$HOME/VAL-13T"
+          else
+            echo "❌ Could not find VAL-13T directory in /Programming/VAL-13T or $HOME/Programming/VAL-13T!"
+            exit 1
+          fi
+
+          echo "📂 Active directory: $(pwd)"
+
+          echo "⬇️ Pulling latest changes from origin main..."
+          git pull origin main
+
+          echo "🐳 Rebuilding and updating Docker container..."
+          docker compose up -d --build
+
+          echo "✅ VAL-13T successfully deployed and running!"
