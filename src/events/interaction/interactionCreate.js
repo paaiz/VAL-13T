@@ -9,7 +9,7 @@ const {
   MessageFlags,
 } = require("discord.js");
 const { loginWithUrlOrCookie } = require("../../structures/valorant/Valorant");
-const { isUserBlacklisted } = require("../../structures/database/Database");
+const { isUserBlacklisted, logCommandUsage } = require("../../structures/database/Database");
 const { links } = require("../../assets/json/config.json");
 
 module.exports = class extends Event {
@@ -104,7 +104,16 @@ module.exports = class extends Event {
           }
         }
 
-        interaction.member = interaction.guild.members.cache.get(interaction.user.id);
+        interaction.member = interaction.guild?.members.cache.get(interaction.user.id);
+
+        let subcommand = null;
+        try {
+          subcommand = interaction.options.getSubcommand(false);
+        } catch (_) {}
+        const trackedName = subcommand ? `/${command.name} ${subcommand}` : `/${command.name}`;
+
+        logCommandUsage(trackedName, interaction.user.id, interaction.guild?.id || null);
+
         await command.run(
           interaction,
           args,
