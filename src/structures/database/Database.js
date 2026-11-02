@@ -87,7 +87,7 @@ const stmtGetActiveAccount = db.prepare(`
 const stmtGetAllAccounts = db.prepare(`
   SELECT * FROM accounts
   WHERE user_id = ?
-  ORDER BY is_active DESC, updated_at DESC
+  ORDER BY rowid ASC
 `);
 const stmtGetAccountByPuuid = db.prepare(`
   SELECT * FROM accounts

@@ -1,7 +1,11 @@
 const Command = require("../../structures/Command");
 const {
   ApplicationCommandOptionType,
-  EmbedBuilder,
+  ContainerBuilder,
+  SectionBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
@@ -39,98 +43,122 @@ module.exports = class extends Command {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const footerData = {
-      text: "VAL-13T was created by Paiz. Riot Games does not endorse this project.",
-      iconURL: this.client.user.displayAvatarURL(),
-    };
+    const footerText = "-# VAL-13T was created by Paiz. Riot Games does not endorse this project.";
 
     if (!input) {
-      const row = new ActionRowBuilder().addComponents(
+      const linkButtonsRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setStyle(ButtonStyle.Link)
-          .setLabel("Open Riot Games Login")
+          .setLabel("Link Account")
           .setURL(RIOT_AUTH_URL),
         new ButtonBuilder()
           .setStyle(ButtonStyle.Link)
-          .setLabel("Switch / Relogin Account")
+          .setLabel("Add Account")
           .setURL(RIOT_SWITCH_AUTH_URL),
+      );
+
+      const pasteButtonRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setStyle(ButtonStyle.Primary)
           .setCustomId("open_login_modal")
           .setLabel("Paste Redirect URL"),
       );
 
-      const loginGuideEmbed = new EmbedBuilder()
-        .setTitle(`${this.client.user.username}'s Login Center!`)
-        .setColor("Red")
-        .setDescription(
-          [
-            `Link your **Riot Games** account to check your **Valorant Store** directly on Discord.`,
-            `**${this.client.user.username}** never asks for or stores your Riot password.`,
-          ].join("\n"),
-        )
-        .addFields(
-          {
-            name: "Guide",
-            value: [
-              ">>> **1.** Click **Open Riot Games Login** (or **Switch / Relogin Account** to add another account) and sign in through your browser.",
-              "**2.** Once redirected to a **localhost/error page** that refused to connect (`http://localhost/redirect?iss=...`), **copy the entire URL** from your address bar.",
-              "**3.** Click **Paste Redirect URL** below and paste the copied URL!",
+      const loginGuideContainer = new ContainerBuilder()
+        .setAccentColor(0xff4655)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            [
+              `### ${this.client.user.username}'s Login Center!`,
+              `Link your **Riot Games** account to check your **Valorant Store** directly on Discord.`,
+              `**${this.client.user.username}** never asks for or stores your Riot password.`,
             ].join("\n"),
-          },
-          {
-            name: "TIP",
-            value:
-              "Check **'Stay signed in'** and **'Remember this browser for 30 days'** to avoid being signed out.",
-          },
+          ),
         )
-        .setFooter(footerData);
+        .addSeparatorComponents(
+          new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            [
+              "**Guide**",
+              "- Click **Link Account** to link your first account or **Add Account** to add another account.",
+            ].join("\n"),
+          ),
+        )
+        .addActionRowComponents(linkButtonsRow)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            [
+              "- You will be redirected to the Riot Games login page. Log in with your Riot account.",
+              "- Once redirected to a **localhost/error page** that refused to connect (`http://localhost/redirect?iss=...`), **copy the entire URL** from your address bar.",
+              "- Click **Paste Redirect URL** below and paste the copied URL!",
+            ].join("\n"),
+          ),
+        )
+        .addActionRowComponents(pasteButtonRow)
+        .addSeparatorComponents(
+          new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+        )
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
 
       return interaction.followUp({
-        embeds: [loginGuideEmbed],
-        components: [row],
+        components: [loginGuideContainer],
+        flags: MessageFlags.IsComponentsV2,
       });
     }
 
     try {
       const getValUser = await loginWithUrlOrCookie(interaction.user.id, input);
 
-      const successEmbed = new EmbedBuilder()
-        .setAuthor({
-          name: "Login Status: SUCCESS",
-          iconURL: interaction.user.displayAvatarURL(),
-        })
-        .setColor("Red")
-        .setDescription(
-          `Successfully logged in as **${getValUser.username}** (\`${getValUser.region.toUpperCase()}\`)!`,
+      const successContainer = new ContainerBuilder()
+        .setAccentColor(0xff4655)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            [
+              "### Login Status: SUCCESS",
+              `Successfully logged in as **${getValUser.username}** (\`${getValUser.region.toUpperCase()}\`)!`,
+            ].join("\n"),
+          ),
         )
-        .addFields({
-          name: "Available Commands",
-          value: [
-            "> You can now check your Valorant store using **/store**, **/bundles**, **/accessories**, **/balances**, **/nightmarket**, or switch accounts with **/accounts**.",
-            "",
-            "Want to unlink your account later? Simply run **/logout** at any time.",
-          ].join("\n"),
-        })
-        .setFooter(footerData);
+        .addSeparatorComponents(
+          new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            [
+              "**Available Commands**",
+              "> See /help for a list of all available commands.",
+              "",
+              "-# Want to unlink your account later? Simply run **/logout** at any time.",
+            ].join("\n"),
+          ),
+        )
+        .addSeparatorComponents(
+          new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+        )
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
 
       return interaction.followUp({
-        embeds: [successEmbed],
+        components: [successContainer],
+        flags: MessageFlags.IsComponentsV2,
       });
     } catch (err) {
       this.client.logger.err(`[VALORANT-LOGIN] - ${err.message}`);
 
-      const errorEmbed = new EmbedBuilder()
-        .setAuthor({
-          name: "Login Status: ERROR",
-          iconURL: interaction.user.displayAvatarURL(),
-        })
-        .setColor("Red")
-        .setDescription(err.message)
-        .setFooter(footerData);
+      const errorContainer = new ContainerBuilder()
+        .setAccentColor(0xff4655)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(["### Login Status: ERROR", err.message].join("\n")),
+        )
+        .addSeparatorComponents(
+          new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+        )
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
 
       return interaction.followUp({
-        embeds: [errorEmbed],
+        components: [errorContainer],
+        flags: MessageFlags.IsComponentsV2,
       });
     }
   }

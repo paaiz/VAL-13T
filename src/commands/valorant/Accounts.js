@@ -1,8 +1,12 @@
 const Command = require("../../structures/Command");
 const {
-  EmbedBuilder,
-  ActionRowBuilder,
-  StringSelectMenuBuilder,
+  ContainerBuilder,
+  SectionBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
+  ButtonBuilder,
+  ButtonStyle,
   ComponentType,
   MessageFlags,
 } = require("discord.js");
@@ -29,130 +33,124 @@ module.exports = class extends Command {
 
   async run(interaction) {
     const accounts = getUserAccounts(interaction.user.id);
-    const embed = new EmbedBuilder().setColor("Red");
 
     if (!accounts.length) {
-      return interaction.reply({
-        embeds: [
-          embed
-            .setAuthor({
-              name: "Accounts Status: EMPTY",
-              iconURL: interaction.user.displayAvatarURL(),
-            })
-            .setDescription(
+      const emptyContainer = new ContainerBuilder()
+        .setAccentColor(0xff4655)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            [
+              "### Accounts Status: EMPTY",
               "You don't have any Valorant accounts linked yet! Run `/login` to add an account.",
-            ),
-        ],
-        flags: MessageFlags.Ephemeral,
+            ].join("\n"),
+          ),
+        );
+
+      return interaction.reply({
+        components: [emptyContainer],
+        flags: [MessageFlags.Ephemeral, MessageFlags.IsComponentsV2],
       });
     }
 
-    const buildAccountsEmbed = (accList) => {
-      const fields = accList.map((acc, idx) => {
-        const status = checkAccountStatus(acc);
-        let statusText;
-        if (status.valid) {
-          statusText = `Token refreshes <t:${status.expiresAt}:R>`;
-        } else if (status.canAutoRefresh) {
-          statusText = `Refreshes automatically on next command`;
-        } else {
-          statusText = `Expired (Run \`/login\` to refresh)`;
-        }
-
-        return {
-          name: `${idx + 1}. ${acc.username} (${acc.region.toUpperCase()})${
-            acc.isActive ? " - [ACTIVE]" : ""
-          }`,
-          value: [`> **Status:** ${statusText}`].join("\n"),
-          inline: false,
-        };
-      });
-
-      return new EmbedBuilder()
-        .setColor("Red")
-        .setAuthor({
-          name: `Linked Accounts for: ${interaction.user.username}`,
-          iconURL: interaction.user.displayAvatarURL(),
-        })
-        .setDescription(
-          [
-            `You have **${accList.length}/${MAX_ACCOUNTS_PER_USER}** Valorant account${
-              accList.length > 1 ? "s" : ""
-            } linked.`,
-            `Use \`/login\` to add another account or refresh an expired session.`,
-          ].join("\n"),
+    const buildAccountsContainer = (accList, disabled = false) => {
+      const container = new ContainerBuilder()
+        .setAccentColor(0xff4655)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            [
+              `### Linked Accounts for: ${interaction.user.username}`,
+              `You have **${accList.length}/${MAX_ACCOUNTS_PER_USER}** Valorant account${
+                accList.length > 1 ? "s" : ""
+              } linked.`,
+              `Use \`/login\` to add another account or \`/logout\` to remove an account.`,
+            ].join("\n"),
+          ),
         )
-        .addFields(fields)
-        .setFooter({
-          text: "Click the dropdown below to switch your active account!",
-          iconURL: this.client.user.displayAvatarURL(),
-        });
-    };
-
-    const buildSwitchRow = (accList, disabled = false) => {
-      const menu = new StringSelectMenuBuilder()
-        .setCustomId("accounts-switch-select")
-        .setPlaceholder(
-          disabled ? "This account switcher has expired!" : "Select an account to set as Active!",
-        )
-        .setDisabled(disabled)
-        .addOptions(
-          accList.map((acc) => {
-            const status = checkAccountStatus(acc);
-            return {
-              label: `${acc.username} (${acc.region.toUpperCase()})`,
-              value: acc.puuid,
-              description: acc.isActive
-                ? "Currently Active Account"
-                : status.valid || status.canAutoRefresh
-                  ? "Click to switch to this account"
-                  : "Session expired — switch or re-login",
-              default: acc.isActive,
-              emoji: "<:valorant_logo:965476928930852864>",
-            };
-          }),
+        .addSeparatorComponents(
+          new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
         );
 
-      return new ActionRowBuilder().addComponents(menu);
+      accList.forEach((acc, idx) => {
+        const section = new SectionBuilder()
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              [`**${idx + 1}. ${acc.username} (${acc.region.toUpperCase()})**`].join("\n"),
+            ),
+          )
+          .setButtonAccessory(
+            acc.isActive
+              ? new ButtonBuilder()
+                  .setCustomId(`accounts-active:${acc.puuid}`)
+                  .setLabel("Active")
+                  .setStyle(ButtonStyle.Success)
+                  .setDisabled(true)
+              : new ButtonBuilder()
+                  .setCustomId(`accounts-switch:${acc.puuid}`)
+                  .setLabel("Switch")
+                  .setStyle(ButtonStyle.Secondary)
+                  .setDisabled(disabled),
+          );
+
+        container.addSectionComponents(section);
+
+        if (idx < accList.length - 1) {
+          container.addSeparatorComponents(
+            new SeparatorBuilder().setDivider(false).setSpacing(SeparatorSpacingSize.Small),
+          );
+        }
+      });
+
+      container
+        .addSeparatorComponents(
+          new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+        )
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `-# VAL-13T • Currently active: ${accounts.find((acc) => acc.isActive)?.username}`,
+          ),
+        );
+
+      return container;
     };
 
     const hasMultiple = accounts.length > 1;
 
     const msg = await interaction.reply({
-      embeds: [buildAccountsEmbed(accounts)],
-      components: hasMultiple ? [buildSwitchRow(accounts)] : [],
-      flags: MessageFlags.Ephemeral,
+      components: [buildAccountsContainer(accounts, false)],
+      flags: [MessageFlags.Ephemeral, MessageFlags.IsComponentsV2],
       fetchReply: true,
     });
 
     if (!hasMultiple) return;
 
     const collector = msg.createMessageComponentCollector({
-      componentType: ComponentType.StringSelect,
+      componentType: ComponentType.Button,
       time: 60000,
     });
 
     collector.on("collect", async (inter) => {
-      if (inter.customId !== "accounts-switch-select") return;
+      if (!inter.customId.startsWith("accounts-switch:")) return;
 
-      const selectedPuuid = inter.values[0];
+      const selectedPuuid = inter.customId.split(":")[1];
       setActiveAccount(interaction.user.id, selectedPuuid);
 
-      const updatedAccounts = getUserAccounts(interaction.user.id);
+      accounts.forEach((acc) => {
+        acc.isActive = acc.puuid === selectedPuuid;
+      });
       collector.resetTimer({ time: 60000, idle: 60000 });
 
       await inter.update({
-        embeds: [buildAccountsEmbed(updatedAccounts)],
-        components: [buildSwitchRow(updatedAccounts)],
+        components: [buildAccountsContainer(accounts, false)],
+        flags: MessageFlags.IsComponentsV2,
       });
     });
 
     collector.on("end", () => {
-      const latestAccounts = getUserAccounts(interaction.user.id);
-      if (latestAccounts.length > 1) {
+      if (accounts.length > 1) {
         msg
           .edit({
-            components: [buildSwitchRow(latestAccounts, true)],
+            components: [buildAccountsContainer(accounts, true)],
+            flags: MessageFlags.IsComponentsV2,
           })
           .catch(() => null);
       }

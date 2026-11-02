@@ -5,7 +5,10 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  EmbedBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
   MessageFlags,
 } = require("discord.js");
 const { loginWithUrlOrCookie } = require("../../structures/valorant/Valorant");
@@ -37,7 +40,8 @@ module.exports = class extends Event {
 
         if (command.devMode && this.client.config.client?.development !== true) {
           return interaction.reply({
-            content: "Sorry, this command is currently in development and not enabled in production!",
+            content:
+              "Sorry, this command is currently in development and not enabled in production!",
             flags: MessageFlags.Ephemeral,
           });
         }
@@ -96,7 +100,7 @@ module.exports = class extends Event {
             if (missing.length) {
               return interaction.reply({
                 content: `Sorry, you need \`${this.client.utils.formatArray(
-                  missing.map(this.client.utils.formatPerms)
+                  missing.map(this.client.utils.formatPerms),
                 )}\` permission${grammarCheck} to run this slash command!`,
                 flags: MessageFlags.Ephemeral,
               });
@@ -117,7 +121,7 @@ module.exports = class extends Event {
         await command.run(
           interaction,
           args,
-          interaction.options.data.map((value) => value.value)
+          interaction.options.data.map((value) => value.value),
         );
       } catch (err) {
         console.log(err);
@@ -153,9 +157,7 @@ module.exports = class extends Event {
               .setCustomId("riot_auth_input")
               .setLabel("Paste the Redirect URL from your browser")
               .setStyle(TextInputStyle.Paragraph)
-              .setPlaceholder(
-                "http://localhost/redirect?code=..."
-              )
+              .setPlaceholder("http://localhost/redirect?code=...")
               .setRequired(true);
 
             const row = new ActionRowBuilder().addComponents(urlOrCookieInput);
@@ -178,50 +180,52 @@ module.exports = class extends Event {
       if (interaction.customId === "valorant_login_modal") {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const input = interaction.fields.getTextInputValue("riot_auth_input");
-        const footerData = {
-          text: "VAL-13T was created by Paiz. Riot Games does not endorse this project.",
-          iconURL: this.client.user.displayAvatarURL(),
-        };
+        const footerText =
+          "-# VAL-13T was created by Paiz. Riot Games does not endorse this project.";
 
         try {
           const getValUser = await loginWithUrlOrCookie(interaction.user.id, input);
 
-          const successEmbed = new EmbedBuilder()
-            .setAuthor({
-              name: "Login Status: SUCCESS",
-              iconURL: interaction.user.displayAvatarURL(),
-            })
-            .setColor("Red")
-            .setDescription(
-              `Successfully logged in as **${getValUser.username}** (\`${getValUser.region.toUpperCase()}\`)!`
+          const successContainer = new ContainerBuilder()
+            .setAccentColor(0xff4655)
+            .addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(
+                [
+                  "### Login Status: SUCCESS",
+                  `Successfully logged in as **${getValUser.username}** (\`${getValUser.region.toUpperCase()}\`)!`,
+                  "- See `/help` for a list of all available commands.",
+                  "",
+                  "-# Want to unlink your account later? Simply run **/logout** at any time.",
+                ].join("\n"),
+              ),
             )
-            .addFields({
-              name: "Available Commands",
-              value: [
-                "> You can now check your Valorant store using **/store**, **/bundles**, **/accessories**, **/balances**, **/nightmarket**, or switch accounts with **/accounts**.",
-                "",
-                "Want to unlink your account later? Simply run **/logout** at any time.",
-              ].join("\n"),
-            })
-            .setFooter(footerData);
+            .addSeparatorComponents(
+              new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+            )
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
 
           return interaction.followUp({
-            embeds: [successEmbed],
+            components: [successContainer],
+            flags: MessageFlags.IsComponentsV2,
           });
         } catch (err) {
           this.client.logger.err(`[VALORANT-MODAL-LOGIN] - ${err.message}`);
 
-          const errorEmbed = new EmbedBuilder()
-            .setAuthor({
-              name: "Login Status: ERROR",
-              iconURL: interaction.user.displayAvatarURL(),
-            })
-            .setColor("Red")
-            .setDescription(err.message)
-            .setFooter(footerData);
+          const errorContainer = new ContainerBuilder()
+            .setAccentColor(0xff4655)
+            .addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(
+                ["### Login Status: ERROR", err.message].join("\n"),
+              ),
+            )
+            .addSeparatorComponents(
+              new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+            )
+            .addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
 
           return interaction.followUp({
-            embeds: [errorEmbed],
+            components: [errorContainer],
+            flags: MessageFlags.IsComponentsV2,
           });
         }
       }

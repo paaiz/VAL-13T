@@ -144,7 +144,7 @@ module.exports = class extends Command {
           );
 
         const previewMsg = await inter.reply({
-          content: `[🎥 **Video Preview — ${defaultLevel.name}**](${defaultLevel.video})`,
+          content: `[🎥 **Video Preview - ${defaultLevel.name}**](${defaultLevel.video})`,
           components: [buildLevelRow(levels.length - 1)],
           flags: MessageFlags.Ephemeral,
           fetchReply: true,
@@ -161,7 +161,7 @@ module.exports = class extends Command {
           levelCollector.resetTimer({ time: 60000, idle: 60000 });
 
           await lvlInter.update({
-            content: `[🎥 **Video Preview — ${chosen.name}**](${chosen.video})`,
+            content: `[🎥 **Video Preview - ${chosen.name}**](${chosen.video})`,
             components: [buildLevelRow(lvlIdx)],
           });
         });
