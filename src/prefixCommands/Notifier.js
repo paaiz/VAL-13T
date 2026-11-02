@@ -27,17 +27,14 @@ module.exports = class extends Command {
       }
 
       const resultsList = (res.results || [])
-        .map(
-          (r) =>
-            `${r.sent ? "✅" : "⏸️"} **${r.username}** (<@${r.userId}>)\n└ *${r.status}*`
-        )
+        .map((r) => `${r.sent ? "✅" : "⏸️"} **${r.username}** (<@${r.userId}>)\n└ *${r.status}*`)
         .join("\n\n");
 
       const embed = new EmbedBuilder()
         .setColor("Red")
         .setTitle(`Daily Store Check Summary (${res.todayStr})`)
         .setDescription(
-          `Checked **${res.results?.length || 0}** account(s) • Sent **${res.sentCount}** DM(s)\n\n${resultsList || "No accounts processed."}`
+          `Checked **${res.results?.length || 0}** account(s) • Sent **${res.sentCount}** DM(s)\n\n${resultsList || "No accounts processed."}`,
         )
         .setFooter({
           text: `Triggered by ${message.author.username}`,
