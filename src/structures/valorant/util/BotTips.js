@@ -46,6 +46,13 @@ const BOT_TIPS = [
       "You can check the current featured store bundle with **/bundles**, or view your VP, Radianite Points, and Kingdom Credits with **/balances**!",
   },
   {
+    type: "Tip",
+    command: "season",
+    title: "💡 Tip: Season & Act Reset Countdown",
+    description:
+      "Wondering how much time you have left to finish your Battle Pass or climb ranked? Use **/season** anytime to check the current Act reset countdown—no login required!",
+  },
+  {
     type: "Fun Fact",
     command: null,
     title: "🎲 Fun Fact: Daily Store Rotation",
