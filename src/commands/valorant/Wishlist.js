@@ -1,9 +1,15 @@
 const Command = require("../../structures/Command");
 const {
   ApplicationCommandOptionType,
-  EmbedBuilder,
-  ActionRowBuilder,
-  StringSelectMenuBuilder,
+  ContainerBuilder,
+  SectionBuilder,
+  TextDisplayBuilder,
+  ThumbnailBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
   MessageFlags,
 } = require("discord.js");
 
@@ -36,63 +42,19 @@ module.exports = class extends Command {
       botPerms: [],
       options: [
         {
-          name: "add",
-          description: "Add a weapon skin to your wishlist (notifies you via DM when in store)",
-          type: ApplicationCommandOptionType.Subcommand,
-          options: [
-            {
-              name: "skin",
-              description: "The weapon skin to add to your wishlist",
-              type: ApplicationCommandOptionType.String,
-              required: true,
-              autocomplete: true,
-            },
-          ],
-        },
-        {
-          name: "remove",
-          description: "Remove a weapon skin from your wishlist",
-          type: ApplicationCommandOptionType.Subcommand,
-          options: [
-            {
-              name: "skin",
-              description: "The wishlisted skin to remove",
-              type: ApplicationCommandOptionType.String,
-              required: true,
-              autocomplete: true,
-            },
-          ],
-        },
-        {
-          name: "list",
-          description: "View and manage your current skin wishlist",
-          type: ApplicationCommandOptionType.Subcommand,
+          name: "skin",
+          description:
+            "Optional: Add a weapon skin to your wishlist (leave empty to view wishlist)",
+          type: ApplicationCommandOptionType.String,
+          required: false,
+          autocomplete: true,
         },
       ],
     });
   }
 
   async autocomplete(interaction) {
-    const sub = interaction.options.getSubcommand(false);
     const focused = (interaction.options.getFocused() || "").trim().toLowerCase();
-
-    if (sub === "remove") {
-      const user = getUser(interaction.user.id);
-      if (!user) return interaction.respond([]);
-      const wishlist = getWishlist(interaction.user.id, user.puuid);
-      const filtered = wishlist
-        .filter((item) => !focused || item.name.toLowerCase().includes(focused))
-        .slice(0, 25);
-
-      return interaction.respond(
-        filtered.map((item) => ({
-          name: item.name.slice(0, 100),
-          value: item.uuid,
-        })),
-      );
-    }
-
-    // Default (`add`): search store skins
     const results = searchSkins(focused, 25).filter((s) => !s.source || s.source === "store");
     return interaction.respond(
       results.map((skin) => ({
@@ -103,33 +65,32 @@ module.exports = class extends Command {
   }
 
   async run(interaction) {
-    const sub = interaction.options.getSubcommand();
+    const input = interaction.options.getString("skin");
     const user = getUser(interaction.user.id);
 
     if (!user) {
+      const notLoggedInContainer = new ContainerBuilder()
+        .setAccentColor(0xff4655)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            [
+              "### Wishlist Status: NOT LOGGED IN",
+              "You are not logged in! Please run `/login` first.",
+            ].join("\n"),
+          ),
+        );
+
       return interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setAuthor({
-              name: "Wishlist Status: NOT LOGGED IN",
-              iconURL: interaction.user.displayAvatarURL(),
-            })
-            .setDescription("You are not logged in! Please run `/login` first."),
-        ],
-        flags: MessageFlags.Ephemeral,
+        components: [notLoggedInContainer],
+        flags: [MessageFlags.Ephemeral, MessageFlags.IsComponentsV2],
       });
     }
 
-    const footerData = {
-      text: "VAL-13T • Store resets daily at 07:00 AM",
-      iconURL: this.client.user.displayAvatarURL(),
-    };
+    const footerText = "-# VAL-13T • Store resets daily at 07:00 AM";
 
-    if (sub === "add") {
-      const input = interaction.options.getString("skin");
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+    if (input) {
       let index = getSkinIndex();
       if (!index.length || index[0].source === undefined) {
         await loadWeaponSkins();
@@ -138,33 +99,47 @@ module.exports = class extends Command {
 
       const skin = index.find((s) => s.uuid === input) || searchSkins(input, 1)[0];
       if (!skin) {
+        const notFoundContainer = new ContainerBuilder()
+          .setAccentColor(0xff4655)
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              [
+                "### Wishlist: SKIN NOT FOUND",
+                `Couldn't find any weapon skin matching **${input}**!`,
+              ].join("\n"),
+            ),
+          );
+
         return interaction.followUp({
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setAuthor({
-                name: "Wishlist: SKIN NOT FOUND",
-                iconURL: interaction.user.displayAvatarURL(),
-              })
-              .setDescription(`Couldn't find any weapon skin matching **${input}**!`),
-          ],
+          components: [notFoundContainer],
+          flags: MessageFlags.IsComponentsV2,
         });
       }
 
       if (skin.source && skin.source !== "store") {
-        return interaction.followUp({
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setAuthor({
-                name: "Wishlist: NOT A STORE SKIN",
-                iconURL: interaction.user.displayAvatarURL(),
-              })
-              .setThumbnail(skin.icon)
-              .setDescription(
-                `**${skin.name}** is an exclusive **${skin.source.toUpperCase()}** item and cannot appear in the daily store rotation!`,
+        const notStoreContainer = new ContainerBuilder().setAccentColor(0xff4655);
+        const notStoreText = new TextDisplayBuilder().setContent(
+          [
+            "### Wishlist: NOT A STORE SKIN",
+            `**${skin.name}** is an exclusive **${skin.source.toUpperCase()}** item and cannot appear in the daily store rotation!`,
+          ].join("\n"),
+        );
+
+        if (skin.icon) {
+          notStoreContainer.addSectionComponents(
+            new SectionBuilder()
+              .addTextDisplayComponents(notStoreText)
+              .setThumbnailAccessory(
+                new ThumbnailBuilder().setURL(skin.icon).setDescription(skin.name),
               ),
-          ],
+          );
+        } else {
+          notStoreContainer.addTextDisplayComponents(notStoreText);
+        }
+
+        return interaction.followUp({
+          components: [notStoreContainer],
+          flags: MessageFlags.IsComponentsV2,
         });
       }
 
@@ -172,85 +147,58 @@ module.exports = class extends Command {
       const alreadyExists = currentList.some((w) => w.uuid === skin.uuid);
 
       if (!alreadyExists && currentList.length >= MAX_WISHLIST_PER_ACCOUNT) {
+        const limitContainer = new ContainerBuilder()
+          .setAccentColor(0xff4655)
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              [
+                "### Wishlist: LIMIT REACHED",
+                `You have reached the maximum of **${MAX_WISHLIST_PER_ACCOUNT} wishlisted skins** for **${user.username}**! Remove a skin first with \`/wishlist\`.`,
+              ].join("\n"),
+            ),
+          );
+
         return interaction.followUp({
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setAuthor({
-                name: "Wishlist: LIMIT REACHED",
-                iconURL: interaction.user.displayAvatarURL(),
-              })
-              .setDescription(
-                `You have reached the maximum of **${MAX_WISHLIST_PER_ACCOUNT} wishlisted skins** for **${user.username}**! Remove a skin first with \`/wishlist remove\`.`,
-              ),
-          ],
+          components: [limitContainer],
+          flags: MessageFlags.IsComponentsV2,
         });
       }
 
       addWishlistItem(interaction.user.id, user.puuid, skin.uuid, skin.name);
 
-      return interaction.followUp({
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setAuthor({
-              name: alreadyExists ? "Wishlist: ALREADY ADDED" : "Wishlist: SKIN ADDED",
-              iconURL: interaction.user.displayAvatarURL(),
-            })
-            .setThumbnail(skin.icon)
-            .setDescription(
-              [
-                `${VALORANT_EMOJI} **${skin.name}** is now on the wishlist for **${user.username}** (\`${user.region.toUpperCase()}\`)!`,
-                "",
-                "I will automatically check your store every day at **07:00 AM** and send you a DM as soon as it appears.",
-              ].join("\n"),
-            )
-            .setFooter(footerData),
-        ],
-      });
-    }
+      const addedContainer = new ContainerBuilder().setAccentColor(0xff4655);
+      const addedText = new TextDisplayBuilder().setContent(
+        [
+          `### ${alreadyExists ? "Wishlist: ALREADY ADDED" : "Wishlist: SKIN ADDED"}`,
+          `**${skin.name}** is now on the wishlist for **${user.username}** (\`${user.region.toUpperCase()}\`)!`,
+          "",
+          "I will automatically check your store every day at **07:00 AM** and send you a DM as soon as it appears.",
+        ].join("\n"),
+      );
 
-    if (sub === "remove") {
-      const input = interaction.options.getString("skin");
-      const currentList = getWishlist(interaction.user.id, user.puuid);
-      const target =
-        currentList.find((w) => w.uuid === input) ||
-        currentList.find((w) => w.name.toLowerCase() === input.trim().toLowerCase());
-
-      if (!target) {
-        return interaction.reply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor("Red")
-              .setAuthor({
-                name: "Wishlist: NOT FOUND",
-                iconURL: interaction.user.displayAvatarURL(),
-              })
-              .setDescription("That skin is not in your current wishlist!"),
-          ],
-          flags: MessageFlags.Ephemeral,
-        });
+      if (skin.icon) {
+        addedContainer.addSectionComponents(
+          new SectionBuilder()
+            .addTextDisplayComponents(addedText)
+            .setThumbnailAccessory(
+              new ThumbnailBuilder().setURL(skin.icon).setDescription(skin.name),
+            ),
+        );
+      } else {
+        addedContainer.addTextDisplayComponents(addedText);
       }
 
-      removeWishlistItem(interaction.user.id, user.puuid, target.uuid);
+      addedContainer
+        .addSeparatorComponents(
+          new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+        )
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
 
-      return interaction.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor("Red")
-            .setAuthor({
-              name: "Wishlist: SKIN REMOVED",
-              iconURL: interaction.user.displayAvatarURL(),
-            })
-            .setDescription(`Removed **${target.name}** from **${user.username}**'s wishlist!`)
-            .setFooter(footerData),
-        ],
-        flags: MessageFlags.Ephemeral,
+      return interaction.followUp({
+        components: [addedContainer],
+        flags: MessageFlags.IsComponentsV2,
       });
     }
-
-    // sub === "list"
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const index = getSkinIndex();
     const prices = await getOfferPrices();
@@ -259,58 +207,54 @@ module.exports = class extends Command {
       const latestUser = getUser(interaction.user.id) || user;
       const list = getWishlist(interaction.user.id, latestUser.puuid);
 
-      const skinLines = list.length
-        ? list.map((item, idx) => {
-            const skinMeta = index.find((s) => s.uuid === item.uuid);
-            const vp = prices?.offers?.[item.uuid] ?? skinMeta?.price;
-            const priceLabel = vp ? ` — ${VP_EMOJI} **${vp.toLocaleString("en-US")}** VP` : "";
-            return `**${idx + 1}.** ${VALORANT_EMOJI} **${item.name}**${priceLabel}`;
-          })
-        : ["*Your wishlist is currently empty! Use `/wishlist add` to track your favorite skins.*"];
-
-      const embed = new EmbedBuilder()
-        .setColor("Red")
-        .setAuthor({
-          name: `Skin Wishlist: ${latestUser.username} (${latestUser.region.toUpperCase()})`,
-          iconURL: interaction.user.displayAvatarURL(),
-        })
-        .setDescription(
-          [
-            `🎯 **Wishlisted Skins (${list.length}/${MAX_WISHLIST_PER_ACCOUNT}):**`,
-            "",
-            ...skinLines,
-            "",
-            "💡 *Tip: Want your full Daily Store sent to your DMs every day at 07:00 AM? Use `/notification daily-store`!*",
-          ].join("\n"),
+      const container = new ContainerBuilder()
+        .setAccentColor(0xff4655)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            [
+              `### Skin Wishlist: ${latestUser.username} (${latestUser.region.toUpperCase()})`,
+              `**Wishlisted Skins (${list.length}/${MAX_WISHLIST_PER_ACCOUNT}):**`,
+            ].join("\n"),
+          ),
         )
-        .setFooter(footerData);
-
-      const rows = [];
+        .addSeparatorComponents(
+          new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
+        );
 
       if (list.length > 0) {
-        rows.push(
-          new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-              .setCustomId("wishlist-remove-select")
-              .setPlaceholder(
-                disabled
-                  ? "This wishlist menu has expired!"
-                  : "Select a skin to remove from your wishlist...",
+        list.forEach((item, idx) => {
+          const skinMeta = index.find((s) => s.uuid === item.uuid);
+          const vp = prices?.offers?.[item.uuid] ?? skinMeta?.price;
+          const priceLabel = vp ? ` — ${VP_EMOJI} **${vp.toLocaleString("en-US")}** VP` : "";
+
+          container.addSectionComponents(
+            new SectionBuilder()
+              .addTextDisplayComponents(
+                new TextDisplayBuilder().setContent(
+                  `**${idx + 1}.** **${item.name}**${priceLabel}`,
+                ),
               )
-              .setDisabled(disabled)
-              .addOptions(
-                list.slice(0, 25).map((item) => ({
-                  label: item.name.slice(0, 100),
-                  value: item.uuid,
-                  description: `Remove ${item.name} from wishlist`,
-                  emoji: "🗑️",
-                })),
+              .setButtonAccessory(
+                new ButtonBuilder()
+                  .setCustomId(`wishlist-remove:${item.uuid}`)
+                  .setLabel("Remove")
+                  .setStyle(ButtonStyle.Danger)
+                  .setDisabled(disabled),
               ),
+          );
+        });
+      } else {
+        container.addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            "*Your wishlist is currently empty! Use `/wishlist` to track your favorite skins.*",
           ),
         );
       }
 
-      return { embeds: [embed], components: rows };
+      return {
+        components: [container],
+        flags: MessageFlags.IsComponentsV2,
+      };
     };
 
     const msg = await interaction.followUp({
@@ -319,14 +263,15 @@ module.exports = class extends Command {
     });
 
     const collector = msg.createMessageComponentCollector({
+      componentType: ComponentType.Button,
       time: 60000,
     });
 
     collector.on("collect", async (inter) => {
-      if (inter.customId !== "wishlist-remove-select") return;
+      if (!inter.customId.startsWith("wishlist-remove:")) return;
       collector.resetTimer({ time: 60000, idle: 60000 });
 
-      const targetUuid = inter.values[0];
+      const targetUuid = inter.customId.split(":")[1];
       const currentAcc = getUser(interaction.user.id) || user;
       removeWishlistItem(interaction.user.id, currentAcc.puuid, targetUuid);
       return inter.update(buildListPayload(false));

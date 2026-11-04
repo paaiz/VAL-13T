@@ -12,6 +12,7 @@ const {
   MessageFlags,
 } = require("discord.js");
 const { loginWithUrlOrCookie } = require("../../structures/valorant/Valorant");
+const { maybeSendRandomTip } = require("../../structures/valorant/util/BotTips");
 const { isUserBlacklisted, logCommandUsage } = require("../../structures/database/Database");
 const { links } = require("../../assets/json/config.json");
 
@@ -123,6 +124,8 @@ module.exports = class extends Event {
           args,
           interaction.options.data.map((value) => value.value),
         );
+
+        await maybeSendRandomTip(interaction, command.name);
       } catch (err) {
         console.log(err);
 
