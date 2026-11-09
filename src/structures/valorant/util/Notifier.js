@@ -4,6 +4,7 @@ const { generateDailyStoreImage } = require("./StoreDesign");
 const {
   getWishlist,
   getAllAutoCheckAccounts,
+  updateAccountSession,
   getSystemSetting,
   setSystemSetting,
 } = require("../../database/Database");
@@ -104,12 +105,27 @@ const isValorantStoreError = (err) => {
 };
 
 /**
+ * Checks if an error indicates the user's Riot session/cookie has expired and requires `/login`.
+ */
+const isSessionExpiredError = (err) => {
+  if (!err) return false;
+  const msg = (err.message || "").toLowerCase();
+  return (
+    msg.includes("session has expired") ||
+    msg.includes("bad_claims") ||
+    msg.includes("not logged in")
+  );
+};
+
+/**
  * Sends a DM notification embed to the user when a Valorant Daily Store error occurs,
  * explaining the error and what actions the user should take.
  */
 const sendStoreErrorNotification = async (client, account, err) => {
-  // Only send error notification if the account has Daily Store notification enabled
-  if (!account?.userId || !account.dailyDm) return;
+  if (!account?.userId) return;
+  // Notify all auto-check users (Daily DM or Wishlist) when session expires;
+  // for other store errors, only notify accounts with Daily Store Auto-DM enabled.
+  if (!account.dailyDm && !isSessionExpiredError(err)) return;
 
   try {
     const discordUser = await client.users.fetch(account.userId).catch(() => null);
@@ -385,12 +401,19 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
             status: isFatal ? `Failed: ${failureLabel}` : `Failed: ${err.message}`,
           });
 
-          // Send an explanatory embed to the user only if Daily Store notification is enabled
-          if (account.dailyDm && isValorantStoreError(err)) {
+          if (isSessionExpiredError(err)) {
+            updateAccountSession(account.userId, account.puuid, {
+              headers: {},
+              ssidCookie: null,
+              refreshToken: null,
+            });
+          }
+
+          if ((account.dailyDm || isSessionExpiredError(err)) && isValorantStoreError(err)) {
             await sendStoreErrorNotification(client, account, err);
           }
 
-          break; // Stop retry loop immediately for non-retryable errors
+          break;
         }
       }
     }
