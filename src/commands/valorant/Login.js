@@ -91,7 +91,7 @@ module.exports = class extends Command {
           new TextDisplayBuilder().setContent(
             [
               "`2.` Log in with your **Riot Games** account in your browser.",
-              '-# 💡 Tip: Check **"Stay signed in"** so you don\'t get logged out quickly!',
+              '-# Tip: Check **"Stay signed in"** so you don\'t get logged out quickly!',
               '`3.` You will see a **"This site can\'t be reached" (`http://localhost/redirect...`)** page - **this is normal!** Copy the **entire link (URL)** from your browser.',
               "`4.` Click **Paste Redirect URL** below and paste the link you copied!",
             ].join("\n"),
