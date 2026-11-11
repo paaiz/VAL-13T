@@ -134,11 +134,20 @@ const decodeToken = (token) => {
 
 const extractCodeFromUri = (uri) => {
   try {
-    const url = new URL(uri);
+    const normalized = /^localhost/i.test(uri) ? `http://${uri}` : uri;
+    const url = new URL(normalized);
     return url.searchParams.get("code")?.trim() || null;
   } catch (_) {
-    const match = uri.match(/[?&]code=([^&#\s]+)/);
-    return match ? decodeURIComponent(match[1].trim()) : null;
+    const match = uri.match(/(?:[?&]|^)code=([^&#\s]+)/i);
+    if (match) return decodeURIComponent(match[1].trim());
+    // Also support if the user copied only the raw OAuth code value itself (including base64 == or %3D%3D)
+    try {
+      const decoded = decodeURIComponent(uri.trim());
+      if (/^[A-Za-z0-9._=-]{24,160}$/.test(decoded) && !decoded.startsWith("eyJ")) {
+        return decoded;
+      }
+    } catch (__) {}
+    return null;
   }
 };
 
@@ -432,9 +441,21 @@ const loginWithUrlOrCookie = async (id, input) => {
     const cookieResult = await fetchTokensFromCookie(trimmed);
     tokens = cookieResult.tokens;
     newSsidCookie = cookieResult.ssidCookie;
+  } else if (/localhost(\/redirect)?/i.test(trimmed) || trimmed.includes("session_state=")) {
+    throw new ValorantAPIError(
+      "Your `localhost/redirect` link is incomplete (missing `&code=...` at the very end)! Make sure you copy the **entire** URL from your browser's address bar.",
+    );
+  } else if (/riotgames\.com/i.test(trimmed)) {
+    throw new ValorantAPIError(
+      "That is the Riot sign-in page link! Please open **Link Account** in your browser, log in to your Riot account first, and wait until you reach the `http://localhost/redirect?...` page before copying the link.",
+    );
+  } else if (trimmed.includes("#") && !/^https?:\/\//i.test(trimmed)) {
+    throw new ValorantAPIError(
+      "Please do not type your Riot ID or password here! Click **Link Account** first, sign in on Riot's website, and paste the `http://localhost/redirect?...` URL from your browser.",
+    );
   } else {
     throw new ValorantAPIError(
-      "Invalid Redirect URL! Make sure you copied the full URL from your browser's address bar (`http://localhost/redirect?code=...`).",
+      "Invalid Redirect URL! Make sure you copied the full URL from your browser's address bar (`http://localhost/redirect?iss=...&code=...`).",
     );
   }
 
