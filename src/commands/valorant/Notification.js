@@ -22,7 +22,7 @@ module.exports = class extends Command {
       description: "Manage your daily 07:00 AM Valorant store & wishlist DM notifications!",
       category: "Valorant",
       categoryEmoji: VALORANT_EMOJI,
-      guildOnly: true,
+      guildOnly: false,
       devMode: false,
       userPerms: [],
       botPerms: [],

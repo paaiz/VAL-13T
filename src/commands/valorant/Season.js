@@ -42,7 +42,7 @@ module.exports = class extends Command {
       description: "Check the current Valorant Season / Act schedule and reset countdown!",
       category: "Valorant",
       categoryEmoji: VALORANT_EMOJI,
-      guildOnly: true,
+      guildOnly: false,
       devMode: false,
       userPerms: [],
       botPerms: [],

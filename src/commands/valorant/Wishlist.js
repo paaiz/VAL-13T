@@ -36,7 +36,7 @@ module.exports = class extends Command {
       description: "Manage your Valorant weapon skin wishlist!",
       category: "Valorant",
       categoryEmoji: VALORANT_EMOJI,
-      guildOnly: true,
+      guildOnly: false,
       devMode: false,
       userPerms: [],
       botPerms: [],

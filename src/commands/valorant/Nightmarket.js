@@ -18,7 +18,7 @@ module.exports = class extends Command {
 			description: 'Fetch your current Nightmarket in Valorant!',
 			category: 'Valorant',
 			categoryEmoji: '<:valorant_logo:965476928930852864>',
-			guildOnly: true,
+			guildOnly: false,
 			devMode: false,
 			userPerms: [],
 			botPerms: [],

@@ -37,7 +37,7 @@ module.exports = class extends Command {
       description: "Look up any Valorant weapon skin, price, tier, chromas & video previews!",
       category: "Valorant",
       categoryEmoji: VALORANT_EMOJI,
-      guildOnly: true,
+      guildOnly: false,
       devMode: false,
       userPerms: [],
       botPerms: [],

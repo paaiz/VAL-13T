@@ -7,7 +7,7 @@ module.exports = class extends Command {
 			description: 'Shows you some information about VAL-13T!',
 			category: 'Information',
 			categoryEmoji: '<:information:965480660833812493>',
-			guildOnly: true,
+			guildOnly: false,
 			devMode: false,
 			userPerms: [],
 			botPerms: [],

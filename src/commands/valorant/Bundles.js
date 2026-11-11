@@ -16,7 +16,7 @@ module.exports = class extends Command {
       description: "Check the active Featured Bundles in your Valorant Store!",
       category: "Valorant",
       categoryEmoji: "<:valorant_logo:965476928930852864>",
-      guildOnly: true,
+      guildOnly: false,
       devMode: false,
       userPerms: [],
       botPerms: [],

@@ -14,7 +14,7 @@ module.exports = class extends Command {
 			description: 'Display some information about this bot.',
 			category: 'Information',
 			categoryEmoji: '<:information:965480660833812493>',
-			guildOnly: true,
+			guildOnly: false,
 			devMode: false,
 			userPerms: [],
 			botPerms: [],

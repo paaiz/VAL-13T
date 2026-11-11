@@ -18,7 +18,7 @@ module.exports = class extends Command {
       description: "Logout and unlink your Riot account(s)!",
       category: "Valorant",
       categoryEmoji: "<:valorant_logo:965476928930852864>",
-      guildOnly: true,
+      guildOnly: false,
       devMode: false,
       userPerms: [],
       botPerms: [],

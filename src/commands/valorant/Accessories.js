@@ -15,7 +15,7 @@ module.exports = class extends Command {
       description: "Check your weekly Accessory Store rotation (Kingdom Credits)!",
       category: "Valorant",
       categoryEmoji: "<:valorant_logo:965476928930852864>",
-      guildOnly: true,
+      guildOnly: false,
       devMode: false,
       userPerms: [],
       botPerms: [],
