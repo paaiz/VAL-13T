@@ -63,7 +63,8 @@ module.exports = class extends Event {
 
         try {
           const sender = interaction.user;
-          this.client.logger.cmd(`${sender.tag} [${sender.id}] Ran: /${command.name}`);
+          const location = interaction.guild ? "" : " (in DM)";
+          this.client.logger.cmd(`${sender.tag} [${sender.id}] Ran: /${command.name}${location}`);
         } catch (err) {
           console.log(err);
         }
@@ -188,8 +189,9 @@ module.exports = class extends Event {
 
         try {
           const getValUser = await loginWithUrlOrCookie(interaction.user.id, input);
+          const location = interaction.guild ? "" : " (in DM)";
           this.client.logger.cmd(
-            `${interaction.user.tag} [${interaction.user.id}] Successfully logged in!`,
+            `${interaction.user.tag} [${interaction.user.id}] Successfully logged in!${location}`,
           );
 
           const successContainer = new ContainerBuilder()
