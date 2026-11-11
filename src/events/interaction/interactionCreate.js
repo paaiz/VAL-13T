@@ -160,7 +160,7 @@ module.exports = class extends Event {
               .setCustomId("riot_auth_input")
               .setLabel("Paste the Redirect URL from your browser")
               .setStyle(TextInputStyle.Paragraph)
-              .setPlaceholder("http://localhost/redirect?code=...")
+              .setPlaceholder("http://localhost/redirect?iss=https%3A%2F%2Fauth.riotgames.com...")
               .setRequired(true);
 
             const row = new ActionRowBuilder().addComponents(urlOrCookieInput);
@@ -188,6 +188,9 @@ module.exports = class extends Event {
 
         try {
           const getValUser = await loginWithUrlOrCookie(interaction.user.id, input);
+          this.client.logger.cmd(
+            `${interaction.user.tag} [${interaction.user.id}] Successfully logged in!`,
+          );
 
           const successContainer = new ContainerBuilder()
             .setAccentColor(0xff4655)
@@ -212,8 +215,6 @@ module.exports = class extends Event {
             flags: MessageFlags.IsComponentsV2,
           });
         } catch (err) {
-          this.client.logger.err(`[VALORANT-MODAL-LOGIN] - ${err.message}`);
-
           const errorContainer = new ContainerBuilder()
             .setAccentColor(0xff4655)
             .addTextDisplayComponents(
