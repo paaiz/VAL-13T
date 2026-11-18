@@ -12,6 +12,9 @@ const {
 const VP_EMOJI = "<:vp_png:974611751146496020>";
 const VALORANT_EMOJI = "<:valorant_logo:965476928930852864>";
 
+const NOTIFIER_CONCURRENCY = 4;
+const WORKER_COOLDOWN_MS = 400;
+
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const getJakartaDateString = () => {
@@ -231,7 +234,9 @@ const checkAccountStoreAndNotify = async (client, account, { forceDm = false } =
     return { sent: false, matchedCount: 0 };
   }
 
-  const discordUser = await client.users.fetch(account.userId).catch(() => null);
+  const discordUser =
+    client.users.cache.get(account.userId) ||
+    (await client.users.fetch(account.userId).catch(() => null));
   if (!discordUser) {
     return { sent: false, reason: "user_not_found" };
   }
@@ -300,8 +305,104 @@ const checkAccountStoreAndNotify = async (client, account, { forceDm = false } =
 };
 
 /**
+ * Processes a single account from the notification queue with up to 3 retry attempts.
+ */
+const processQueuedAccount = async (client, account, workerNum = 1) => {
+  const tag = `[NOTIFIER] [Worker #${workerNum}]`;
+  let attempts = 0;
+  const maxAttempts = 3;
+
+  while (attempts < maxAttempts) {
+    attempts++;
+    try {
+      const res = await checkAccountStoreAndNotify(client, account);
+      if (res.sent) {
+        const matchInfo =
+          res.matchedCount > 0 ? `${res.matchedCount} wishlist match(es)` : "Daily Store Auto-DM";
+        client.logger.ready(
+          `${tag} Sent DM to ${account.username} (${account.userId}): ${matchInfo}`,
+        );
+        return {
+          username: account.username,
+          userId: account.userId,
+          sent: true,
+          status: matchInfo,
+        };
+      }
+
+      if (res.reason === "user_not_found") {
+        client.logger.warn(
+          `${tag} Discord user not found for ${account.username} (${account.userId}). Skipping notification.`,
+        );
+        return {
+          username: account.username,
+          userId: account.userId,
+          sent: false,
+          status: "Discord user not found",
+        };
+      }
+
+      if (res.reason === "no_triggers") {
+        return {
+          username: account.username,
+          userId: account.userId,
+          sent: false,
+          status: "No active triggers",
+        };
+      }
+
+      client.logger.ready(
+        `${tag} No DM needed for ${account.username} (${account.userId}): Wishlist skin not in today's store & Daily Store Auto-DM is disabled.`,
+      );
+      return {
+        username: account.username,
+        userId: account.userId,
+        sent: false,
+        status: "Wishlist skin not in today's store & Daily DM disabled",
+      };
+    } catch (err) {
+      const isFatal = isNonRetryableError(err);
+      const failureLabel = formatFailureStatus(err);
+
+      if (!isFatal && attempts < maxAttempts) {
+        client.logger.warn(
+          `${tag} Attempt ${attempts}/${maxAttempts} failed for ${account.username} (${account.userId}): ${err.message}. Retrying in 5s...`,
+        );
+        await wait(5000);
+      } else {
+        const logMsg = isFatal
+          ? `${tag} Non-retryable error for ${account.username} (${account.userId}): ${failureLabel}. Skipping retries.`
+          : `${tag} Failed store check for ${account.username} (${account.userId}) after ${maxAttempts} attempts: ${err.message}`;
+
+        client.logger.err(logMsg);
+
+        if (isSessionExpiredError(err)) {
+          updateAccountSession(account.userId, account.puuid, {
+            headers: {},
+            ssidCookie: null,
+            refreshToken: null,
+          });
+        }
+
+        if ((account.dailyDm || isSessionExpiredError(err)) && isValorantStoreError(err)) {
+          await sendStoreErrorNotification(client, account, err);
+        }
+
+        return {
+          username: account.username,
+          userId: account.userId,
+          sent: false,
+          status: isFatal ? `Failed: ${failureLabel}` : `Failed: ${err.message}`,
+        };
+      }
+    }
+  }
+};
+
+/**
  * Runs daily after store reset to check all accounts with Wishlist or Daily Store Auto-DM enabled.
- * Includes per-account retries with polite delays to handle transient edge errors gracefully.
+ * Uses a concurrent Worker Pool Queue (NOTIFIER_CONCURRENCY parallel workers) to process accounts
+ * simultaneously while respecting Riot & Discord rate limits.
  * Tracks last_store_notified_date to avoid duplicate notifications on restarts.
  */
 const runDailyStoreNotifications = async (client, { force = false } = {}) => {
@@ -321,108 +422,43 @@ const runDailyStoreNotifications = async (client, { force = false } = {}) => {
     return { skipped: false, todayStr, sentCount: 0, results: [] };
   }
 
+  const startTime = Date.now();
+  const workerCount = Math.min(NOTIFIER_CONCURRENCY, accounts.length);
+
   client.logger.ready(
-    `[NOTIFIER] Running daily store check for ${accounts.length} account(s) (${todayStr})...`,
+    `[NOTIFIER] Running daily store check for ${accounts.length} account(s) (${todayStr}) using ${workerCount} parallel worker(s)...`,
   );
 
-  let sentCount = 0;
-  const results = [];
+  const results = new Array(accounts.length);
+  let queueIndex = 0;
 
-  for (const account of accounts) {
-    let success = false;
-    let attempts = 0;
-    const maxAttempts = 3;
+  const runWorker = async (workerId) => {
+    // Stagger initial worker start slightly (0ms, 200ms, 400ms, 600ms) to avoid a burst on Riot Auth
+    if (workerId > 0) {
+      await wait(workerId * 200);
+    }
 
-    while (!success && attempts < maxAttempts) {
-      attempts++;
-      try {
-        const res = await checkAccountStoreAndNotify(client, account);
-        if (res.sent) {
-          sentCount++;
-          const matchInfo =
-            res.matchedCount > 0 ? `${res.matchedCount} wishlist match(es)` : "Daily Store Auto-DM";
-          client.logger.ready(
-            `[NOTIFIER] Sent DM to ${account.username} (${account.userId}): ${matchInfo}`,
-          );
-          results.push({
-            username: account.username,
-            userId: account.userId,
-            sent: true,
-            status: matchInfo,
-          });
-        } else if (res.reason === "user_not_found") {
-          client.logger.warn(
-            `[NOTIFIER] Discord user not found for ${account.username} (${account.userId}). Skipping notification.`,
-          );
-          results.push({
-            username: account.username,
-            userId: account.userId,
-            sent: false,
-            status: "Discord user not found",
-          });
-        } else if (res.reason === "no_triggers") {
-          results.push({
-            username: account.username,
-            userId: account.userId,
-            sent: false,
-            status: "No active triggers",
-          });
-        } else {
-          client.logger.ready(
-            `[NOTIFIER] No DM needed for ${account.username} (${account.userId}): Wishlist skin not in today's store & Daily Store Auto-DM is disabled.`,
-          );
-          results.push({
-            username: account.username,
-            userId: account.userId,
-            sent: false,
-            status: "Wishlist skin not in today's store & Daily DM disabled",
-          });
-        }
-        success = true;
-      } catch (err) {
-        const isFatal = isNonRetryableError(err);
-        const failureLabel = formatFailureStatus(err);
+    while (queueIndex < accounts.length) {
+      const currentIdx = queueIndex++;
+      const account = accounts[currentIdx];
 
-        if (!isFatal && attempts < maxAttempts) {
-          client.logger.warn(
-            `[NOTIFIER] Attempt ${attempts}/${maxAttempts} failed for ${account.username} (${account.userId}): ${err.message}. Retrying in 5s...`,
-          );
-          await wait(5000);
-        } else {
-          const logMsg = isFatal
-            ? `[NOTIFIER] Non-retryable error for ${account.username} (${account.userId}): ${failureLabel}. Skipping retries.`
-            : `[NOTIFIER] Failed store check for ${account.username} (${account.userId}) after ${maxAttempts} attempts: ${err.message}`;
+      const result = await processQueuedAccount(client, account, workerId + 1);
+      results[currentIdx] = result;
 
-          client.logger.err(logMsg);
-          results.push({
-            username: account.username,
-            userId: account.userId,
-            sent: false,
-            status: isFatal ? `Failed: ${failureLabel}` : `Failed: ${err.message}`,
-          });
-
-          if (isSessionExpiredError(err)) {
-            updateAccountSession(account.userId, account.puuid, {
-              headers: {},
-              ssidCookie: null,
-              refreshToken: null,
-            });
-          }
-
-          if ((account.dailyDm || isSessionExpiredError(err)) && isValorantStoreError(err)) {
-            await sendStoreErrorNotification(client, account, err);
-          }
-
-          break;
-        }
+      if (queueIndex < accounts.length) {
+        await wait(WORKER_COOLDOWN_MS);
       }
     }
-    await wait(3500);
-  }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, (_, idx) => runWorker(idx)));
+
+  const sentCount = results.filter((r) => r?.sent).length;
+  const elapsedSec = ((Date.now() - startTime) / 1000).toFixed(1);
 
   setSystemSetting("last_store_notified_date", todayStr);
   client.logger.ready(
-    `[NOTIFIER] Completed daily store check! Sent ${sentCount} DM notification(s) for ${todayStr}.`,
+    `[NOTIFIER] Completed daily store check in ${elapsedSec}s! Sent ${sentCount} DM notification(s) for ${todayStr}.`,
   );
 
   return { skipped: false, todayStr, sentCount, results };
