@@ -1,139 +1,174 @@
-const path = require('path');
-const { promisify } = require('util');
-const glob = promisify(require('glob'));
+const path = require("path");
+const { promisify } = require("util");
+const glob = promisify(require("glob"));
 
-const Command = require('./Command.js');
-const PrefixCommand = require('./PrefixCommand.js');
-const Event = require('./Event');
+const Command = require("./Command.js");
+const PrefixCommand = require("./PrefixCommand.js");
+const Event = require("./Event");
+const Interaction = require("./Interaction");
 
 module.exports = class Util {
-	constructor(client) {
-		this.client = client;
-	}
+  constructor(client) {
+    this.client = client;
+  }
 
-	isClass(input) {
-		return typeof input === 'function' && typeof input.prototype === 'object' && input.toString().substring(0, 5) === 'class';
-	}
+  isClass(input) {
+    return (
+      typeof input === "function" &&
+      typeof input.prototype === "object" &&
+      input.toString().substring(0, 5) === "class"
+    );
+  }
 
-	get directory() {
-		return `${path.resolve(__dirname, '..').replace(/\\/g, '/')}/`;
-	}
+  get directory() {
+    return `${path.resolve(__dirname, "..").replace(/\\/g, "/")}/`;
+  }
 
-	removeDuplicates(arr) {
-		return [...new Set(arr)];
-	}
+  removeDuplicates(arr) {
+    return [...new Set(arr)];
+  }
 
-	removeDupedLabel(arr) {
-		const uniq = {};
-		const arrFiltered = arr.filter((obj) => !uniq[(obj.label, obj.value)] && (uniq[(obj.label, obj.value)] = true));
+  removeDupedLabel(arr) {
+    const uniq = {};
+    const arrFiltered = arr.filter(
+      (obj) => !uniq[(obj.label, obj.value)] && (uniq[(obj.label, obj.value)] = true),
+    );
 
-		return arrFiltered;
-	}
+    return arrFiltered;
+  }
 
-	capitalise(string) {
-		return string
-			.split(' ')
-			.map((str) => str.slice(0, 1).toUpperCase() + str.slice(1))
-			.join(' ');
-	}
+  capitalise(string) {
+    return string
+      .split(" ")
+      .map((str) => str.slice(0, 1).toUpperCase() + str.slice(1))
+      .join(" ");
+  }
 
-	notCapitalise(string) {
-		return string
-			.split(' ')
-			.map((str) => str.slice(0, 1).toLowerCase() + str.slice(1))
-			.join(' ');
-	}
+  notCapitalise(string) {
+    return string
+      .split(" ")
+      .map((str) => str.slice(0, 1).toLowerCase() + str.slice(1))
+      .join(" ");
+  }
 
-	checkOwner(target) {
-		return this.client.config.client.owners.includes(target);
-	}
+  checkOwner(target) {
+    return this.client.config.client.owners.includes(target);
+  }
 
-	trimArray(arr, maxLen = 10) {
-		if (arr.length > maxLen) {
-			const len = arr.length - maxLen;
-			arr = arr.slice(0, maxLen);
-			arr.push(`${len} More...`);
-		}
-		return arr;
-	}
+  trimArray(arr, maxLen = 10) {
+    if (arr.length > maxLen) {
+      const len = arr.length - maxLen;
+      arr = arr.slice(0, maxLen);
+      arr.push(`${len} More...`);
+    }
+    return arr;
+  }
 
-	formatBytes(bytes) {
-		if (bytes === 0) return '0 Bytes';
-		const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-		const i = Math.floor(Math.log(bytes) / Math.log(1024));
-		return `${parseFloat((bytes / Math.pow(1024, i)).toFixed(2))} ${sizes[i]}`;
-	}
+  formatBytes(bytes) {
+    if (bytes === 0) return "0 Bytes";
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${parseFloat((bytes / Math.pow(1024, i)).toFixed(2))} ${sizes[i]}`;
+  }
 
-	formatPerms(perm) {
-		return perm
-			.toLowerCase()
-			.replace(/(^|"|_)(\S)/g, (s) => s.toUpperCase())
-			.replace(/_/g, ' ')
-			.replace(/Guild/g, 'Server')
-			.replace(/Use Vad/g, 'Use Voice Activity');
-	}
+  formatPerms(perm) {
+    return perm
+      .toLowerCase()
+      .replace(/(^|"|_)(\S)/g, (s) => s.toUpperCase())
+      .replace(/_/g, " ")
+      .replace(/Guild/g, "Server")
+      .replace(/Use Vad/g, "Use Voice Activity");
+  }
 
-	formatArray(array, type = 'conjunction') {
-		return new Intl.ListFormat('en-GB', { style: 'short', type: type }).format(array);
-	}
+  formatArray(array, type = "conjunction") {
+    return new Intl.ListFormat("en-GB", { style: "short", type: type }).format(array);
+  }
 
-	categoryCheck(category, message) {
-		category = category.toLowerCase();
-		switch (category) {
-			case 'owner':
-				return this.checkOwner(message.author.id);
-			case 'nsfw':
-				return message.channel.nsfw;
-			default:
-				return true;
-		}
-	}
+  categoryCheck(category, message) {
+    category = category.toLowerCase();
+    switch (category) {
+      case "owner":
+        return this.checkOwner(message.author.id);
+      case "nsfw":
+        return message.channel.nsfw;
+      default:
+        return true;
+    }
+  }
 
-	async loadPrefixCommands() {
-		return glob(`${this.directory}prefixCommands/**/*.js`).then((commands) => {
-			for (const commandFile of commands) {
-				delete require.cache[commandFile];
-				const { name } = path.parse(commandFile);
-				const File = require(commandFile);
-				if (!this.isClass(File)) throw new TypeError(`Command ${name} doesn't export a class.`);
-				const command = new File(this.client, name.toLowerCase());
-				if (!(command instanceof PrefixCommand)) throw new TypeError(`Command ${name} doesn't belong in commands.`);
-				this.client.prefixCommands.set(command.name, command);
-				if (command.aliases.length) {
-					for (const alias of command.aliases) {
-						this.client.prefixAliases.set(alias, command.name);
-					}
-				}
-			}
-		});
-	}
+  async loadPrefixCommands() {
+    return glob(`${this.directory}prefixCommands/**/*.js`).then((commands) => {
+      for (const commandFile of commands) {
+        delete require.cache[commandFile];
+        const { name } = path.parse(commandFile);
+        const File = require(commandFile);
+        if (!this.isClass(File)) throw new TypeError(`Command ${name} doesn't export a class.`);
+        const command = new File(this.client, name.toLowerCase());
+        if (!(command instanceof PrefixCommand))
+          throw new TypeError(`Command ${name} doesn't belong in commands.`);
+        this.client.prefixCommands.set(command.name, command);
+        if (command.aliases.length) {
+          for (const alias of command.aliases) {
+            this.client.prefixAliases.set(alias, command.name);
+          }
+        }
+      }
+    });
+  }
 
-	async loadSlashCommands() {
-		return glob(`${this.directory}commands/**/*.js`).then((slashCmd) => {
-			for (const slashFile of slashCmd) {
-				delete require.cache[slashFile];
-				const { name } = path.parse(slashFile);
-				const File = require(slashFile);
-				if (!this.isClass(File)) throw new TypeError(`Slash Command ${name} doesn't export a class.`);
-				const slash = new File(this.client, name.toLowerCase());
-				if (!(slash instanceof Command)) throw new TypeError(`Slash Command ${name} doesn't belong in slash commands.`);
-				this.client.commands.set(slash.name, slash);
-			}
-		});
-	}
+  async loadSlashCommands() {
+    return glob(`${this.directory}commands/**/*.js`).then((slashCmd) => {
+      for (const slashFile of slashCmd) {
+        delete require.cache[slashFile];
+        const { name } = path.parse(slashFile);
+        const File = require(slashFile);
+        if (!this.isClass(File))
+          throw new TypeError(`Slash Command ${name} doesn't export a class.`);
+        const slash = new File(this.client, name.toLowerCase());
+        if (!(slash instanceof Command))
+          throw new TypeError(`Slash Command ${name} doesn't belong in slash commands.`);
+        this.client.commands.set(slash.name, slash);
+      }
+    });
+  }
 
-	async loadEvents() {
-		return glob(`${this.directory}events/**/*.js`).then((events) => {
-			for (const eventFile of events) {
-				delete require.cache[eventFile];
-				const { name } = path.parse(eventFile);
-				const File = require(eventFile);
-				if (!this.isClass(File)) throw new TypeError(`Event ${name} doesn't export a class!`);
-				const event = new File(this.client, name);
-				if (!(event instanceof Event)) throw new TypeError(`Event ${name} doesn't belong in Events`);
-				this.client.events.set(event.name, event);
-				event.emitter[event.type](name, (...args) => event.run(...args));
-			}
-		});
-	}
+  async loadEvents() {
+    return glob(`${this.directory}events/**/*.js`, {
+      ignore: ["**/is*/**"],
+    }).then((events) => {
+      for (const eventFile of events) {
+        delete require.cache[eventFile];
+        const { name } = path.parse(eventFile);
+        const File = require(eventFile);
+        if (!this.isClass(File)) throw new TypeError(`Event ${name} doesn't export a class!`);
+        const event = new File(this.client, name);
+        if (!(event instanceof Event))
+          throw new TypeError(`Event ${name} doesn't belong in Events`);
+        this.client.events.set(event.name, event);
+        event.emitter[event.type](name, (...args) => event.run(...args));
+      }
+    });
+  }
+
+  async loadComponents() {
+    return glob(`${this.directory}events/interaction/is*/**/*.js`).then((componentFiles) => {
+      for (const file of componentFiles) {
+        delete require.cache[file];
+        const { name, dir } = path.parse(file);
+        const folderName = path.basename(dir);
+        const File = require(file);
+        if (!this.isClass(File)) {
+          throw new TypeError(`Interaction ${folderName}/${name} doesn't export a class!`);
+        }
+        const component = new File(this.client, name, folderName);
+        if (!(component instanceof Interaction)) {
+          throw new TypeError(`Interaction ${folderName}/${name} doesn't belong in Interactions`);
+        }
+        if (!this.client.components.has(folderName)) {
+          this.client.components.set(folderName, new Map());
+        }
+        this.client.components.get(folderName).set(component.name, component);
+      }
+    });
+  }
 };

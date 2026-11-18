@@ -1,18 +1,5 @@
 const Event = require("../../structures/Event");
-const {
-  ApplicationCommandOptionType,
-  ActionRowBuilder,
-  EmbedBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  SeparatorBuilder,
-  SeparatorSpacingSize,
-  MessageFlags,
-} = require("discord.js");
-const { loginWithUrlOrCookie } = require("../../structures/valorant/Valorant");
+const { ApplicationCommandOptionType, MessageFlags } = require("discord.js");
 const { maybeSendRandomTip } = require("../../structures/valorant/util/BotTips");
 const { isUserBlacklisted, logCommandUsage } = require("../../structures/database/Database");
 const { links } = require("../../assets/json/config.json");
@@ -140,133 +127,25 @@ module.exports = class extends Event {
         }
         return interaction.reply(errorPayload);
       }
+      return;
     }
 
-    if (interaction.isButton()) {
-      try {
-        switch (interaction.customId) {
-          case "guild_list_delete":
-            await interaction.message.delete();
-            await interaction.reply({
-              content: "Successfully deleted guild list!",
-              flags: MessageFlags.Ephemeral,
-            });
-            break;
+    for (const [folderName, handlersById] of this.client.components.entries()) {
+      if (typeof interaction[folderName] === "function" && interaction[folderName]()) {
+        const baseCustomId = interaction.customId?.split(":")[0];
+        const component =
+          handlersById.get(interaction.customId) || handlersById.get(baseCustomId);
 
-          case "open_login_modal": {
-            const modal = new ModalBuilder()
-              .setCustomId("valorant_login_modal")
-              .setTitle("VAL-13T — Riot Account Login");
-
-            const urlOrCookieInput = new TextInputBuilder()
-              .setCustomId("riot_auth_input")
-              .setLabel("Paste the Redirect URL from your browser")
-              .setStyle(TextInputStyle.Paragraph)
-              .setPlaceholder("http://localhost/redirect?iss=https%3A%2F%2Fauth.riotgames.com...")
-              .setRequired(true);
-
-            const row = new ActionRowBuilder().addComponents(urlOrCookieInput);
-            modal.addComponents(row);
-
-            await interaction.showModal(modal);
-            break;
-          }
-
-          default:
-            break;
-        }
-      } catch (err) {
-        console.log(err);
-        this.client.logger.err(`[BUTTON-INTERACTION] - ${err.message}`);
-      }
-    }
-
-    if (interaction.isStringSelectMenu()) {
-      if (interaction.customId === "help-menu") {
-        try {
-          const selectedCategory = interaction.values[0];
-          const commandNameList = this.client.commands
-            .filter(
-              (cmd) =>
-                cmd.category.toLowerCase() === selectedCategory.toLowerCase() &&
-                cmd.devMode === false,
-            )
-            .map(
-              (cmd) =>
-                `\`/${cmd.name}\`\n<:anotha_curve:965498554728742932> ${cmd.description}`,
+        if (component) {
+          try {
+            await component.run(interaction);
+          } catch (err) {
+            this.client.logger.err(
+              `[${folderName.toUpperCase()}:${interaction.customId}] - ${err.message}`,
             );
-
-          const collectorEmbed = new EmbedBuilder()
-            .setTitle(
-              `${this.client.utils.capitalise(selectedCategory)} Category Command Lists!`,
-            )
-            .setColor("Red")
-            .setDescription(commandNameList.join("\n"));
-
-          await interaction.reply({
-            embeds: [collectorEmbed],
-            flags: MessageFlags.Ephemeral,
-          });
-        } catch (err) {
-          this.client.logger.err(`[SELECT-MENU-HELP] - ${err.message}`);
+          }
         }
-      }
-    }
-
-    if (interaction.isModalSubmit()) {
-      if (interaction.customId === "valorant_login_modal") {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-        const input = interaction.fields.getTextInputValue("riot_auth_input");
-        const footerText =
-          "-# VAL-13T was created by Paiz. Riot Games does not endorse this project.";
-
-        try {
-          const getValUser = await loginWithUrlOrCookie(interaction.user.id, input);
-          const location = interaction.guild ? "" : " (in DM)";
-          this.client.logger.cmd(
-            `${interaction.user.tag} [${interaction.user.id}] Successfully logged in!${location}`,
-          );
-
-          const successContainer = new ContainerBuilder()
-            .setAccentColor(0xff4655)
-            .addTextDisplayComponents(
-              new TextDisplayBuilder().setContent(
-                [
-                  "### Login Status: SUCCESS",
-                  `Successfully logged in as **${getValUser.username}** (\`${getValUser.region.toUpperCase()}\`)!`,
-                  "- See `/help` for a list of all available commands.",
-                  "",
-                  "-# Want to unlink your account later? Simply run **/logout** at any time.",
-                ].join("\n"),
-              ),
-            )
-            .addSeparatorComponents(
-              new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
-            )
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
-
-          return interaction.followUp({
-            components: [successContainer],
-            flags: MessageFlags.IsComponentsV2,
-          });
-        } catch (err) {
-          const errorContainer = new ContainerBuilder()
-            .setAccentColor(0xff4655)
-            .addTextDisplayComponents(
-              new TextDisplayBuilder().setContent(
-                ["### Login Status: ERROR", err.message].join("\n"),
-              ),
-            )
-            .addSeparatorComponents(
-              new SeparatorBuilder().setDivider(true).setSpacing(SeparatorSpacingSize.Small),
-            )
-            .addTextDisplayComponents(new TextDisplayBuilder().setContent(footerText));
-
-          return interaction.followUp({
-            components: [errorContainer],
-            flags: MessageFlags.IsComponentsV2,
-          });
-        }
+        return;
       }
     }
   }

@@ -70,6 +70,7 @@ module.exports = class MainClient extends Client {
     this.events = new Collection();
     this.prefixCommands = new Collection();
     this.prefixAliases = new Collection();
+    this.components = new Collection();
 
     // Function & System
     this.utils = new Util(this);
@@ -112,6 +113,7 @@ module.exports = class MainClient extends Client {
   async start(token = this.token) {
     this.logger.ready(`SQLite Database Ready (${this.database.DB_PATH})`);
     await this.utils.loadEvents();
+    await this.utils.loadComponents();
     await this.utils.loadPrefixCommands();
 
     await super.login(token);
