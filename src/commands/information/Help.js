@@ -3,8 +3,6 @@ const {
 	EmbedBuilder,
 	ActionRowBuilder,
 	StringSelectMenuBuilder,
-	ComponentType,
-	MessageFlags,
 } = require('discord.js');
 const { links } = require('../../assets/json/config.json');
 
@@ -74,39 +72,7 @@ module.exports = class extends Command {
 					iconURL: this.client.user.displayAvatarURL(),
 				});
 
-			const msg = await interaction.reply({ embeds: [mainMenuEmbed], components: [selectMenu], fetchReply: true });
-
-			const collector = msg.createMessageComponentCollector({
-				time: 15000,
-				componentType: ComponentType.StringSelect,
-			});
-
-			collector.on('collect', async (inter) => {
-				await inter.deferReply({ flags: MessageFlags.Ephemeral });
-
-				const commandNameList = this.client.commands
-					.filter((cmd) => cmd.category.toLowerCase() === inter.values[0].toLowerCase() && cmd.devMode === false)
-					.map((cmd) => `\`/${cmd.name}\`\n<:anotha_curve:965498554728742932> ${cmd.description}`);
-
-				const collectorEmbed = new EmbedBuilder()
-					.setTitle(`${this.client.utils.capitalise(inter.values[0])} Category Command Lists!`)
-					.setColor('Red')
-					.setDescription(commandNameList.join('\n'));
-
-				collector.resetTimer({ time: 15000, idle: 15000 });
-
-				await inter.followUp({ embeds: [collectorEmbed] });
-			});
-
-			collector.on('end', () => {
-				const disabledMenu = new ActionRowBuilder().addComponents(
-					StringSelectMenuBuilder.from(menuComponent)
-						.setDisabled(true)
-						.setPlaceholder('This select menu has expired!'),
-				);
-
-				msg.edit({ embeds: [mainMenuEmbed], components: [disabledMenu] }).catch(() => null);
-			});
+			await interaction.reply({ embeds: [mainMenuEmbed], components: [selectMenu] });
 		} catch (err) {
 			this.client.logger.err(`[INFORMATION-HELP] - ${err.message}`);
 		}
