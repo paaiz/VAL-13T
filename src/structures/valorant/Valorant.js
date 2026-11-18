@@ -13,7 +13,7 @@ const {
 } = require("../database/Database");
 
 const AUTH_REQUEST_TIMEOUT_MS = 10000;
-const REFRESH_BUFFER_SEC = 300; // Refresh tokens 5 minutes before expiry (Ministral standard)
+const REFRESH_BUFFER_SEC = 300;
 
 /**
  * Generates a Riot OAuth2 Authorization Code URL with `offline_access` scope
